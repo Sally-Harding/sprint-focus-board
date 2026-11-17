@@ -1,0 +1,154 @@
+// Sprint Focus Board configuration.
+// Copy this file to config.jsonc (git ignores it) and change what you need. Every key is optional
+// except board.id; a missing key falls back to the default shown here or in the comment.
+// The format is JSON with // and /* */ comments. All values below are made-up examples.
+{
+  // Jira Cloud site. The environment variables JIRA_BASE_URL and JIRA_EMAIL win over these.
+  // The API token is never read from this file: put it in JIRA_API_TOKEN or in .env.
+  "jira": {
+    "baseUrl": "https://example.atlassian.net",
+    "email": "you@example.com"
+  },
+
+  "board": {
+    // The number in the board URL: https://example.atlassian.net/jira/software/projects/DEMO/boards/12
+    "id": 12,
+    // Use the first active sprint whose name starts with this text. "" takes the first active sprint.
+    // The prefix is also left out of the sprint name shown in the header.
+    "sprintNamePrefix": "TEAM",
+    // Suffixes stripped from status names before they are compared (case-insensitive).
+    // Jira adds "(migrated)" to statuses copied over in a project migration.
+    "ignoreStatusSuffixes": ["(migrated)"]
+  },
+
+  "server": {
+    // The server only listens on 127.0.0.1. --port on the command line wins.
+    "port": 8765
+  },
+
+  "ui": {
+    // "en" or "tr". The page also has a language switch; the choice is remembered per browser.
+    "defaultLanguage": "en",
+    // How often the open page reloads the board, in seconds (minimum 15).
+    "refreshSeconds": 60
+  },
+
+  // Reviewer roles: 0..n user-picker fields that pass a ticket along after the assignee.
+  // Their order is the order of the hand-off chain on each card: Assignee -> role 1 -> role 2 ...
+  // Find a field id in Jira: Settings > Issues > Custom fields > ... > the id in the URL, or
+  // GET /rest/api/3/field. Leave the list empty if your team has no reviewer fields;
+  // role rules then treat every role as empty.
+  "reviewerRoles": [
+    { "id": "approver", "field": "customfield_10001", "label": "Approver" },
+    { "id": "mergeApprover", "field": "customfield_10002", "label": { "en": "Merge Approver", "tr": "Merge Approver" } }
+  ],
+
+  // Columns, left to right. A ticket goes to the first column whose statuses and issue types match
+  // and whose rule holds for the person picked in the header.
+  //
+  //   id          unique, letters/digits/_/-
+  //   name        column title (and the default status name)
+  //   statuses    Jira status names for this column (default: [name]); case-insensitive
+  //   color       accent colour of the column
+  //   types       only these issue types (default: all). "Sub-task" also matches "Subtask".
+  //   excludeTypes  never these issue types
+  //   channels    apply the channel chips to this column (default: true for "unassigned",
+  //               "role" and "any" rules, false for "assignee" and "involved")
+  //   stage       which link of the hand-off chain is highlighted: "assignee", a role id or a
+  //               number (0 = assignee). Default: the rule's role, else the assignee.
+  //   description text under the column title; default: written from the rule
+  //   prompt      template copied by the card's Prompt button: a string or { "en": ..., "tr": ... }.
+  //               Placeholders: {key} {summary} {url} {type} {status} {parentKey}
+  //               {parentSummary} {assignee}. Default: a neutral prompt for the column.
+  //   promptIfNotAssignee  template used when the picked person is not the assignee
+  //
+  // Rule types (the "person" is the one picked in the header):
+  //   { "type": "unassigned" }   nobody is assigned
+  //   { "type": "assignee" }     the person is the assignee
+  //   { "type": "involved", "roles": ["approver"] }
+  //                              the person is the assignee or holds one of the roles
+  //                              (default: every reviewer role)
+  //   { "type": "role", "role": "approver", "notAssignee": true,
+  //     "whenEmpty": "anyone", "emptyExcludes": ["otherRole"] }
+  //                              the person holds the role. When the role is empty, anyone may
+  //                              take it ("whenEmpty": "anyone", default) except people who hold
+  //                              a role in emptyExcludes; "whenEmpty": "nobody" hides the ticket.
+  //                              notAssignee: never show the person's own tickets.
+  //   { "type": "any" }          every ticket in these statuses
+  //
+  // These are the built-in defaults; leave "columns" out to use them as they are.
+  "columns": [
+    { "id": "todo", "name": "To Do", "color": "#8A93A6", "rule": { "type": "unassigned" },
+      "types": ["Sub-task", "Bug", "Spike"] },
+    { "id": "reopened", "name": "Reopened", "color": "#E5484D", "rule": { "type": "assignee" } },
+    { "id": "progress", "name": "In Progress", "color": "#2B8CFF", "rule": { "type": "assignee" } },
+    { "id": "blocked", "name": "Blocked", "color": "#D9822B", "rule": { "type": "involved" } },
+    { "id": "toreview", "name": "To Review", "color": "#7A5AF8", "excludeTypes": ["Story"],
+      "rule": { "type": "role", "role": "approver", "notAssignee": true } },
+    { "id": "inreview", "name": "In Review", "color": "#5B6BFF", "excludeTypes": ["Story"],
+      "rule": { "type": "role", "role": "approver" } },
+    { "id": "merge", "name": "For Merge Approval", "color": "#12A594", "excludeTypes": ["Story"],
+      "rule": { "type": "role", "role": "mergeApprover", "notAssignee": true, "emptyExcludes": ["approver"] },
+      // An example of a custom prompt.
+      "prompt": {
+        "en": "Final review of {key}: {summary}\n{url}\n\nCheck the pull request against the acceptance criteria. Do not merge; report the outcome.",
+        "tr": "{key} için son review: {summary}\n{url}\n\nPull request'i kabul kriterlerine göre kontrol et. Merge etme; sonucu bildir."
+      } }
+  ],
+
+  // Channels: optional chips in the header that filter the columns with "channels": true.
+  // A ticket is in a channel when any of these match; tickets in no channel are "Other".
+  // Leave the list empty to hide the chips.
+  //   epics       issue keys; matches the ticket's parent or grandparent (the epic of a sub-task's story)
+  //   labels      glob patterns (* and ?), case-insensitive, on the ticket's and its parent's labels
+  //   components  glob patterns on the ticket's and its parent's components
+  //   summary     a regular expression (case-insensitive) on the ticket, parent and epic summaries
+  "channels": [
+    { "id": "mobile", "name": "Mobile", "color": "#7FA0FF",
+      "epics": ["DEMO-100"], "labels": ["mobile*", "*-ios"], "components": ["Mobile*"], "summary": "\\b(iOS|Android)\\b" },
+    { "id": "payments", "name": "Payments", "color": "#4FD1BE",
+      "labels": ["pay-*"], "summary": "\\bpayments?\\b" }
+  ],
+
+  // Priority name -> level 1..5 (1 is the most urgent). Names that start with P1..P5 are read directly.
+  // These entries are added to the defaults: highest/blocker/critical 1, high/major 2, medium 3,
+  // low/minor 4, lowest/trivial 5.
+  "priorities": {
+    "Showstopper": 1
+  },
+
+  "burndown": {
+    // Turn the burndown button off and skip its Jira calls.
+    "enabled": true,
+    // Days are counted in this time zone: "local" (this computer), "UTC", a fixed offset like "+02:00",
+    // or an IANA name like "Europe/Berlin". IANA names need a time zone database; Windows has none
+    // unless you run `python -m pip install tzdata`.
+    "timezone": "Europe/Berlin",
+    // Used only when the IANA zone above is not installed: the standard offset plus "eu", "us" or "none"
+    // as the daylight-saving rule.
+    "timezoneFallback": { "utcOffset": "+01:00", "dst": "eu" },
+    // Daily target in hours (the dashed line and the "/ 6h" figure). 0 hides the target.
+    "dailyTargetHours": 6,
+    // Colour of a day: below "low" red, below "mid" amber, otherwise green.
+    "thresholds": { "low": 2, "mid": 4 },
+    // ISO weekdays that are not working days (1 = Monday ... 7 = Sunday).
+    "weekendDays": [6, 7],
+    // Issue types left out of the burndown (their estimates usually roll up from sub-tasks).
+    "excludeTypes": ["Story", "Epic"],
+    // Status names that mean done; a Done move with Remaining Estimate left is listed for reference.
+    "doneStatuses": ["Done"],
+
+    // Optional comparison: value each person's first pass through a workflow stage from an estimate
+    // comment on the ticket, such as "Dev: 4h | Rev: 1h | MR: 30m". The newest comment with the full
+    // line wins; without one, the newest single "Rev: 1h"-style values are used. Off by default.
+    "estimateComment": {
+      "enabled": false,
+      "stages": [
+        // by: "assignee" counts the move only when the assignee makes it, "others" only when someone else does.
+        { "id": "dev", "label": "Dev", "from": "In Progress", "to": "To Review", "by": "assignee" },
+        { "id": "rev", "label": "Rev", "from": "In Review", "to": "For Merge Approval", "by": "others" },
+        { "id": "mr", "label": "MR", "from": "For Merge Approval", "to": "Done", "by": "others" }
+      ]
+    }
+  }
+}
