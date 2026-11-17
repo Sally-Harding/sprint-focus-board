@@ -18,7 +18,10 @@ import datetime
 import fnmatch
 import json
 import os
+import hmac
 import re
+import secrets
+import socket
 import sys
 import threading
 import time
@@ -206,6 +209,44 @@ def read_config(path=None):
     return copy.deepcopy(DEFAULTS), None
 
 
+# The setup wizard in the page saves here. It is layered over the config file, so a hand-written
+# config keeps its comments, and it only holds the keys the wizard asks about.
+SETTINGS_KEYS = {"board": ("id", "sprintNamePrefix"), "ui": ("refreshSeconds",), "team": None, "channels": None, "prompts": None}
+
+
+def settings_path():
+    return os.environ.get("BOARD_SETTINGS") or os.path.join(HERE, "settings.json")
+
+
+def read_settings(path):
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            data = json.load(fh)
+    except json.JSONDecodeError as ex:
+        raise ConfigError(f"{path} is not valid JSON (line {ex.lineno}): fix it, or delete it to run the setup again.")
+    if not isinstance(data, dict):
+        raise ConfigError(f"{path} must hold a JSON object")
+    return pick_settings(data)
+
+
+def pick_settings(data):
+    out = {}
+    for key, sub in SETTINGS_KEYS.items():
+        if key in data:
+            out[key] = {k: data[key][k] for k in sub if k in data[key]} if sub and isinstance(data[key], dict) else data[key]
+    return out
+
+
+def write_settings(path, data):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+    os.replace(tmp, path)
+
+
 def load_env_file(path):
     """Read KEY=VALUE lines into os.environ without overriding variables that are already set."""
     if not path or not os.path.isfile(path):
@@ -313,6 +354,10 @@ def parse_ts(ts):
 # Runtime state, filled by configure() and connect().
 
 CFG = copy.deepcopy(DEFAULTS)
+BASE_CFG = copy.deepcopy(DEFAULTS)  # the config file without the wizard's settings, for saving
+SETUP_REQUIRED = False
+SETUP_TOKEN = secrets.token_urlsafe(24)
+TEAM = []
 BASE = ""
 AUTH = ""
 ROLES = []
@@ -370,17 +415,59 @@ def str_list(v, what):
     return v
 
 
+def compile_channels(items, warnings=None):
+    """Validate channel definitions and compile their matchers."""
+    channels, seen = [], {"other"}
+    if not isinstance(items, list):
+        raise ConfigError("channels must be a list")
+    for i, ch in enumerate(items):
+        where = f"channels[{i}]"
+        if not isinstance(ch, dict) or not ch.get("id") or not ID_RE.match(str(ch["id"])) or ch["id"] in seen:
+            raise ConfigError(f'{where} needs a unique id made of letters, digits, _ or - (and not "other")')
+        seen.add(ch["id"])
+        words = [w.strip() for w in str_list(ch.get("keywords"), f"{where}.keywords") if w.strip()]
+        patterns = [ch["summary"]] if ch.get("summary") else []
+        if words:
+            # Keywords are whole words or phrases, so "pay" does not match "payroll".
+            patterns.append(r"(?<!\w)(?:" + "|".join(re.escape(w) for w in words) + r")(?!\w)")
+        try:
+            summary = re.compile("|".join(f"(?:{p})" for p in patterns), re.I) if patterns else None
+        except re.error as ex:
+            raise ConfigError(f"{where}.summary is not a valid regular expression: {ex}")
+        channels.append({
+            "id": ch["id"],
+            "name": ch.get("name") or ch["id"],
+            "color": ch.get("color") or "#7FA0FF",
+            "epics": set(str_list(ch.get("epics"), f"{where}.epics")),
+            "labels": [p.lower() for p in str_list(ch.get("labels"), f"{where}.labels")],
+            "components": [p.lower() for p in str_list(ch.get("components"), f"{where}.components")],
+            "summary": summary,
+        })
+        if warnings is not None and not (channels[-1]["epics"] or channels[-1]["labels"] or channels[-1]["components"] or summary):
+            warnings.append(f"{where} has no epics, labels, components, keywords or summary, so no issue will match it.")
+    return channels
+
+
 def configure(cfg):
     """Validate the merged config and set the module state. Returns a list of warnings."""
-    global CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK, FIELDS
+    global CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK, FIELDS, TEAM, SETUP_REQUIRED
     warnings = []
     board = cfg["board"]
-    if board.get("id") in (None, ""):
-        raise ConfigError("Set board.id in the config (the number in the board URL, .../boards/<id>) or pass --board.")
-    try:
-        board["id"] = int(board["id"])
-    except (TypeError, ValueError):
-        raise ConfigError("board.id must be a number")
+    # Without a board the server still starts; the page then runs the setup wizard.
+    setup_required = board.get("id") in (None, "")
+    if not setup_required:
+        try:
+            board["id"] = int(board["id"])
+        except (TypeError, ValueError):
+            raise ConfigError("board.id must be a number")
+
+    team = []
+    for i, p in enumerate(cfg.get("team") or []):
+        if isinstance(p, str):
+            p = {"id": p}
+        if not isinstance(p, dict) or not p.get("id"):
+            raise ConfigError(f"team[{i}] needs an id (a Jira accountId)")
+        team.append({"id": str(p["id"]), "name": str(p.get("name") or ""), "avatar": str(p.get("avatar") or "")})
     suffixes = [norm(s) for s in str_list(board.get("ignoreStatusSuffixes"), "board.ignoreStatusSuffixes") if norm(s)]
 
     roles, seen = [], set()
@@ -400,6 +487,9 @@ def configure(cfg):
     columns, seen = [], set()
     if not isinstance(cfg.get("columns"), list) or not cfg["columns"]:
         raise ConfigError("columns must be a non-empty list")
+    prompts = cfg.get("prompts") or {}
+    if not isinstance(prompts, dict):
+        raise ConfigError("prompts must be an object of column id: {prompt, promptIfNotAssignee}")
     for i, c in enumerate(cfg["columns"]):
         where = f"columns[{i}]"
         if not isinstance(c, dict) or not c.get("id") or not ID_RE.match(str(c["id"])) or c["id"] in seen:
@@ -441,7 +531,16 @@ def configure(cfg):
         other = localized(c.get("promptIfNotAssignee"), f"{where}.promptIfNotAssignee")
         if other is None and rule["type"] == "involved" and "prompt" not in c:
             other = PROMPTS["blockedReviewer"]
+        # The setup wizard saves its prompt edits under "prompts" and keeps the config's as the default.
+        over = prompts.get(c["id"]) or {}
+        if not isinstance(over, dict):
+            raise ConfigError(f"prompts.{c['id']} must be an object with prompt and promptIfNotAssignee")
+        default_prompt, default_other = prompt, other
+        prompt = localized(over.get("prompt"), f"prompts.{c['id']}.prompt") or prompt
+        other = localized(over.get("promptIfNotAssignee"), f"prompts.{c['id']}.promptIfNotAssignee") or other
         columns.append({
+            "defaultPrompt": default_prompt,
+            "defaultPromptIfNotAssignee": default_other,
             "id": c["id"],
             "name": name,
             "color": c.get("color") or "#8A93A6",
@@ -457,27 +556,9 @@ def configure(cfg):
             "promptIfNotAssignee": other,
         })
 
-    channels, seen = [], {"other"}
-    for i, ch in enumerate(cfg.get("channels") or []):
-        where = f"channels[{i}]"
-        if not isinstance(ch, dict) or not ch.get("id") or not ID_RE.match(str(ch["id"])) or ch["id"] in seen:
-            raise ConfigError(f'{where} needs a unique id made of letters, digits, _ or - (and not "other")')
-        seen.add(ch["id"])
-        try:
-            summary = re.compile(ch["summary"], re.I) if ch.get("summary") else None
-        except re.error as ex:
-            raise ConfigError(f"{where}.summary is not a valid regular expression: {ex}")
-        channels.append({
-            "id": ch["id"],
-            "name": ch.get("name") or ch["id"],
-            "color": ch.get("color") or "#7FA0FF",
-            "epics": set(str_list(ch.get("epics"), f"{where}.epics")),
-            "labels": [p.lower() for p in str_list(ch.get("labels"), f"{where}.labels")],
-            "components": [p.lower() for p in str_list(ch.get("components"), f"{where}.components")],
-            "summary": summary,
-        })
-        if not (channels[-1]["epics"] or channels[-1]["labels"] or channels[-1]["components"] or summary):
-            warnings.append(f"{where} has no epics, labels, components or summary, so no issue will match it.")
+    for cid in set(prompts) - {c["id"] for c in columns}:
+        warnings.append(f"prompts.{cid} is for a column that does not exist; it is ignored.")
+    channels = compile_channels(cfg.get("channels") or [], warnings)
 
     priorities = {}
     for k, v in (cfg.get("priorities") or {}).items():
@@ -521,6 +602,7 @@ def configure(cfg):
         raise ConfigError('ui.defaultLanguage must be "en" or "tr"')
 
     CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK = cfg, roles, columns, channels, priorities, suffixes, burn, clock
+    TEAM, SETUP_REQUIRED = team, setup_required
     FIELDS = ",".join(["summary", "status", "priority", "issuetype", "parent", "assignee", "labels", "components"] + [r["field"] for r in roles])
     return warnings
 
@@ -535,7 +617,8 @@ def connect(cfg):
     if missing:
         raise ConfigError("Missing " + ", ".join(missing) + ". Set them in the environment or in a .env file next to board.py (see .env.example).")
     base = base.strip().rstrip("/")
-    if not re.match(r"^https://[^/\s]+$", base):
+    # Plain http is accepted only on loopback, for a local test double such as demo/demo.py.
+    if not re.match(r"^(https://[^/\s]+|http://(localhost|127\.0\.0\.1)(:\d+)?)$", base):
         raise ConfigError(f"JIRA_BASE_URL must look like https://your-site.atlassian.net, not {base!r}")
     BASE = base
     AUTH = "Basic " + base64.b64encode(f"{email}:{token}".encode()).decode()
@@ -679,7 +762,7 @@ def glob_any(name, patterns):
     return any(fnmatch.fnmatchcase(name, p) for p in patterns)
 
 
-def channels_of(issue, parents):
+def channels_of(issue, parents, channels=None):
     # A ticket belongs to a channel through its own fields or its parent's (labels, components),
     # its parent or grandparent key (epics), or its own, parent or epic summary.
     f = issue["fields"]
@@ -691,7 +774,7 @@ def channels_of(issue, parents):
     labels = list(f.get("labels") or []) + list(pf.get("labels") or [])
     comps = [c.get("name", "") for c in (f.get("components") or []) + (pf.get("components") or [])]
     out = []
-    for ch in CHANNELS:
+    for ch in CHANNELS if channels is None else channels:
         if (keys & ch["epics"]
                 or any(glob_any(x, ch["labels"]) for x in labels)
                 or any(glob_any(x, ch["components"]) for x in comps)
@@ -911,7 +994,8 @@ def burn_json(day, whole_sprint=False, force=False):
 # Page and HTTP server
 
 def page_config():
-    cols = [{k: c[k] for k in ("id", "name", "color", "rule", "channels", "stage", "description", "prompt", "promptIfNotAssignee")}
+    cols = [{k: c[k] for k in ("id", "name", "color", "rule", "channels", "stage", "description", "prompt", "promptIfNotAssignee",
+                               "defaultPrompt", "defaultPromptIfNotAssignee")}
             for c in COLUMNS]
     for out, c in zip(cols, COLUMNS):
         out["types"] = c["typeNames"]
@@ -922,6 +1006,11 @@ def page_config():
         "ui": {"defaultLanguage": CFG["ui"].get("defaultLanguage", "en"), "refreshSeconds": int(CFG["ui"].get("refreshSeconds") or 60)},
         "burndown": {"enabled": BURN["enabled"], "target": BURN["target"], "low": BURN["low"], "mid": BURN["mid"],
                      "weekendDays": BURN["weekendDays"], "stages": [{"id": s["id"], "label": s["label"]} for s in BURN["stages"]]},
+        "team": TEAM,
+        # What the setup wizard edits, as it is today; the token guards its save requests.
+        "setup": {"required": SETUP_REQUIRED, "token": SETUP_TOKEN,
+                  "board": {"id": CFG["board"].get("id"), "sprintNamePrefix": CFG["board"].get("sprintNamePrefix") or ""},
+                  "channels": CFG.get("channels") or []},
     }
 
 
@@ -933,6 +1022,17 @@ def page():
 
 
 ALLOWED_HOSTS = set()
+
+
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+    if os.name == "nt":
+        # On Windows SO_REUSEADDR lets a second process bind a port that is already in use.
+        allow_reuse_address = False
+
+        def server_bind(self):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -954,6 +1054,10 @@ class Handler(BaseHTTPRequestHandler):
         force = q.get("force", [""])[0] == "1"
         if url.path == "/":
             self.send(200, page(), "text/html; charset=utf-8")
+        elif url.path.startswith("/api/setup/"):
+            self.send(*setup_get(url.path[len("/api/setup/"):], {k: v[0] for k, v in q.items()}), "application/json; charset=utf-8")
+        elif url.path in ("/api/board", "/api/burn") and SETUP_REQUIRED:
+            self.send(409, b'{"error":"Finish the setup first.","setup":true}', "application/json; charset=utf-8")
         elif url.path == "/api/board":
             self.send(*board_json(force), "application/json; charset=utf-8")
         elif url.path == "/api/burn":
@@ -973,8 +1077,264 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def do_POST(self):
+        # Writes come only from this server's own page: localhost Host, same-origin Origin when sent,
+        # JSON body and the per-process token from the page (another site cannot read or send it).
+        origin = (self.headers.get("Origin") or "").lower()
+        token = self.headers.get("X-Setup-Token") or ""
+        if ((self.headers.get("Host") or "").lower() not in ALLOWED_HOSTS
+                or (origin and origin not in {"http://" + h for h in ALLOWED_HOSTS})
+                or not hmac.compare_digest(token, SETUP_TOKEN)
+                or "application/json" not in (self.headers.get("Content-Type") or "")):
+            self.send(403, b'{"error":"Forbidden"}', "application/json; charset=utf-8")
+            return
+        try:
+            size = int(self.headers.get("Content-Length") or 0)
+            if size > 1_000_000:
+                raise ValueError("request too large")
+            body = json.loads(self.rfile.read(size) or b"{}")
+            if not isinstance(body, dict):
+                raise ValueError("expected a JSON object")
+        except ValueError as ex:
+            self.send(400, json.dumps({"error": str(ex)}).encode(), "application/json; charset=utf-8")
+            return
+        path = urllib.parse.urlparse(self.path).path
+        handler = {"/api/setup/preview": setup_preview, "/api/setup/save": setup_save}.get(path)
+        if not handler:
+            self.send_error(404)
+            return
+        self.send(*answer(handler, body), "application/json; charset=utf-8")
+
     def log_message(self, *a):
         pass
+
+
+# ---------------------------------------------------------------------------------------------
+# Setup wizard: read-only Jira lookups, a channel preview, and saving the settings file.
+
+def answer(fn, *args):
+    try:
+        return 200, json.dumps(fn(*args)).encode("utf-8")
+    except (ConfigError, ValueError, KeyError, TypeError) as ex:
+        return 400, json.dumps({"error": str(ex) or ex.__class__.__name__}).encode("utf-8")
+    except Exception as ex:
+        print("Setup:", describe(ex), file=sys.stderr)
+        return 502, json.dumps({"error": describe(ex)}).encode("utf-8")
+
+
+def setup_get(name, q):
+    handlers = {
+        "boards": lambda: setup_boards(q.get("q", ""), q.get("id")),
+        "sprints": lambda: setup_sprints(int(q["board"])),
+        "users": lambda: setup_users(q.get("q", "")),
+        "sprint": lambda: setup_sprint_facts(int(q["sprint"])),
+    }
+    if name not in handlers:
+        return 404, b'{"error":"Not found"}'
+    return answer(handlers[name])
+
+
+def board_row(b):
+    loc = b.get("location") or {}
+    return {"id": b["id"], "name": b.get("name", ""), "type": b.get("type", ""), "project": loc.get("projectKey") or ""}
+
+
+def setup_boards(text, board_id=None):
+    if board_id:
+        return [board_row(get(f"{BASE}/rest/agile/1.0/board/{int(board_id)}"))]
+    params = {"type": "scrum", "maxResults": 50}
+    if text.strip():
+        params["name"] = text.strip()
+    return [board_row(b) for b in get(f"{BASE}/rest/agile/1.0/board?" + urllib.parse.urlencode(params)).get("values") or []]
+
+
+def suggest_prefix(name):
+    """The part of a sprint name that stays the same from sprint to sprint: "TEAM Sprint 42" -> "TEAM"."""
+    m = re.match(r"^(.*?)[\s\-–:]*(?:sprint\s*)?#?\d+\s*$", name or "", re.I)
+    return (m.group(1) if m else name or "").strip()
+
+
+def setup_sprints(board_id):
+    values = get(f"{BASE}/rest/agile/1.0/board/{board_id}/sprint?state=active").get("values") or []
+    return [dict({k: s.get(k) for k in ("id", "name", "startDate", "endDate", "goal")}, prefix=suggest_prefix(s["name"])) for s in values]
+
+
+def setup_users(text):
+    if len(text.strip()) < 2:
+        return []
+    found = get(f"{BASE}/rest/api/3/user/search?" + urllib.parse.urlencode({"query": text.strip(), "maxResults": 20}))
+    return [person(u) for u in found if u.get("accountType", "atlassian") == "atlassian" and u.get("active", True) and person(u)]
+
+
+def facets(issues, parents):
+    """Epics, labels and components in a set of issues, each with the number of issues that carry it."""
+    epics, labels, comps = {}, {}, {}
+    for i in issues:
+        f = i["fields"]
+        p = f.get("parent") or {}
+        pf = parents.get(p.get("key"), {})
+        epic = pf.get("parent") or (p if ((p.get("fields") or {}).get("issuetype") or {}).get("name", "").lower() == "epic" else {})
+        if epic.get("key"):
+            hit = epics.setdefault(epic["key"], [(epic.get("fields") or {}).get("summary", ""), 0])
+            hit[1] += 1
+        for x in set(f.get("labels") or []) | set(pf.get("labels") or []):
+            labels[x] = labels.get(x, 0) + 1
+        for x in {c.get("name", "") for c in (f.get("components") or []) + (pf.get("components") or [])} - {""}:
+            comps[x] = comps.get(x, 0) + 1
+    order = lambda d: sorted(d.items(), key=lambda x: (-(x[1][1] if isinstance(x[1], list) else x[1]), x[0]))  # noqa: E731
+    return ([{"key": k, "summary": v[0], "n": v[1]} for k, v in order(epics)],
+            [{"name": k, "n": v} for k, v in order(labels)],
+            [{"name": k, "n": v} for k, v in order(comps)])
+
+
+_setup_cache = {}
+
+
+def sprint_issues(sprint_id, fresh=False):
+    with _lock:
+        hit = _setup_cache.get(sprint_id)
+    if hit and not fresh and time.time() - hit[0] < 300:
+        return hit[1], hit[2]
+    issues = search(f"sprint = {sprint_id} AND statusCategory != Done", FIELDS)
+    parents = fetch_parents(issues)
+    with _lock:
+        _setup_cache[sprint_id] = (time.time(), issues, parents)
+    return issues, parents
+
+
+def setup_sprint_facts(sprint_id):
+    issues, parents = sprint_issues(sprint_id, fresh=True)
+    found = {}
+    for i in issues:
+        f = i["fields"]
+        for p in [person(f.get("assignee"))] + [x for r in ROLES for x in people(f.get(r["field"]))]:
+            if p:
+                found.setdefault(p["id"], p)
+    epics, labels, comps = facets(issues, parents)
+    return {"total": len(issues), "people": sorted(found.values(), key=lambda p: p["name"].lower()),
+            "epics": epics[:40], "labels": labels[:40], "components": comps[:40]}
+
+
+def setup_preview(body):
+    issues, parents = sprint_issues(int(body["sprint"]))
+    channels = compile_channels(body.get("channels") or [])
+    hits = {c["id"]: [] for c in channels + [{"id": "other"}]}
+    for i in issues:
+        for cid in channels_of(i, parents, channels) or ["other"]:
+            hits[cid].append(i["key"])
+    return {"total": len(issues), "matches": {k: {"n": len(v), "keys": v[:5]} for k, v in hits.items()}}
+
+
+def setup_save(body):
+    board = body.get("board") or {}
+    if not board.get("id"):
+        raise ConfigError("Pick a board and its active sprint first.")
+    settings = pick_settings({
+        "board": {"id": int(board["id"]), "sprintNamePrefix": str(board.get("sprintNamePrefix") or "")},
+        "team": body.get("team") or [],
+        "channels": body.get("channels") or [],
+        "prompts": body.get("prompts") or {},
+        "ui": {"refreshSeconds": max(15, int(body.get("refreshSeconds") or 60))},
+    })
+    warnings = configure(deep_merge(BASE_CFG, settings))
+    write_settings(settings_path(), settings)
+    with _lock:
+        _cache.update(at=0.0, body=b"")
+        _burn.clear()
+    if BURN["enabled"]:
+        threading.Thread(target=burn_json, args=(today(), True), daemon=True).start()
+    return {"ok": True, "warnings": warnings, "path": settings_path()}
+
+
+# ---------------------------------------------------------------------------------------------
+# Setup helpers: read-only lookups that help fill in the config without handling the token.
+
+def list_boards(name=""):
+    out, start = [], 0
+    while True:
+        q = {"startAt": start, "maxResults": 50}
+        if name:
+            q["name"] = name
+        d = get(f"{BASE}/rest/agile/1.0/board?" + urllib.parse.urlencode(q))
+        vals = d.get("values") or []
+        out += vals
+        start += len(vals)
+        if d.get("isLast", True) or not vals:
+            break
+    for b in out:
+        loc = b.get("location") or {}
+        print(f"{b['id']:>6}  {b.get('type', ''):<7} {b.get('name', '')}" + (f"  (project {loc['projectKey']})" if loc.get("projectKey") else ""))
+    return 0 if out else 1
+
+
+def list_fields():
+    found = 0
+    for f in get(BASE + "/rest/api/3/field"):
+        kind = ((f.get("schema") or {}).get("custom") or "").lower()
+        if f.get("custom") and "userpicker" in kind:
+            found += 1
+            print(f"{f['id']:<20} {'many' if 'multi' in kind else 'one ':<5} {f.get('name', '')}")
+    if not found:
+        print("No user-picker custom fields; leave reviewerRoles empty.")
+    return 0
+
+
+def check():
+    """Connect, find the sprint and show how its statuses map to the configured columns."""
+    if SETUP_REQUIRED:
+        print("No board yet. Start the board and finish the setup in the browser, or set board.id in the config.", file=sys.stderr)
+        return 2
+    try:
+        me = myself()
+        print(f"Connected to {BASE} as {me['name']}.")
+        sprint = active_sprint()
+        print(f"Board {CFG['board']['id']}: active sprint {sprint['name']!r} ({(sprint.get('startDate') or '')[:10]} to {(sprint.get('endDate') or '')[:10]}).")
+        issues = search(f"sprint = {sprint['id']} AND statusCategory != Done", FIELDS)
+    except Exception as ex:
+        print(f"Check failed: {describe(ex)}", file=sys.stderr)
+        return 1
+    counts = {}
+    for i in issues:
+        s = clean_status(i["fields"]["status"]["name"])
+        counts[s] = counts.get(s, 0) + 1
+    print(f"{len(issues)} open issues in the sprint. Status -> column:")
+    unmatched = []
+    for s, n in sorted(counts.items(), key=lambda x: -x[1]):
+        cols = [c["name"] for c in COLUMNS if norm(s) in c["statuses"]]
+        unmatched += [] if cols else [s]
+        print(f"  {s:<28} {n:>4}  {', '.join(cols) if cols else 'NOT SHOWN: add it to a column statuses list'}")
+    for r in ROLES:
+        filled = sum(1 for i in issues if people(i["fields"].get(r["field"])))
+        print(f"Reviewer role {r['id']!r} ({r['field']}): set on {filled} of {len(issues)} issues.")
+    for t in sorted({i["fields"]["issuetype"]["name"] for i in issues}):
+        print(f"  issue type seen: {t}")
+    try:
+        channel_report(issues, fetch_parents(issues))
+    except Exception as ex:
+        print(f"Channel candidates unavailable: {describe(ex)}", file=sys.stderr)
+    print("OK" if not unmatched else f"OK, but {len(unmatched)} status(es) have no column.")
+    return 0
+
+
+def channel_report(issues, parents):
+    """Print what channels could be built from (epics, labels, components) and how the configured ones match."""
+    epics, labels, comps = facets(issues, parents)
+    print("Channel candidates (optional header chips; each issue counted once per value):")
+    for title, rows in (("epics", [(e["n"], f"{e['key']}  {e['summary']}") for e in epics]),
+                        ("labels", [(x["n"], x["name"]) for x in labels]),
+                        ("components", [(x["n"], x["name"]) for x in comps])):
+        print(f"  {title}:" + (" none" if not rows else ""))
+        for n, text in rows[:12]:
+            print(f"    {n:>4}  {text}")
+    if not CHANNELS:
+        print("No channels configured: the header shows no channel chips and no column filters by channel.")
+        return
+    counts = {}
+    for i in issues:
+        for ch in channels_of(i, parents) or ["other"]:
+            counts[ch] = counts.get(ch, 0) + 1
+    for ch in CHANNELS + [{"id": "other", "name": "Other (no channel)"}]:
+        print(f"Channel {ch['name']!r}: {counts.get(ch['id'], 0)} of {len(issues)} open issues.")
 
 
 def main(argv=None):
@@ -988,9 +1348,15 @@ def main(argv=None):
     ap.add_argument("--board", type=int, help="board id; overrides board.id")
     ap.add_argument("--sprint-prefix", help="overrides board.sprintNamePrefix")
     ap.add_argument("--open", action="store_true", help="open the board in the default browser")
+    ap.add_argument("--check", action="store_true", help="check the config and the Jira connection, show the status mapping, then exit")
+    ap.add_argument("--list-boards", nargs="?", const="", metavar="NAME", help="list the boards this account can see (optionally filtered by name), then exit")
+    ap.add_argument("--list-fields", action="store_true", help="list user-picker custom fields (for reviewerRoles), then exit")
     args = ap.parse_args(argv)
+    global BASE_CFG
     try:
         cfg, path = read_config(args.config)
+        BASE_CFG = copy.deepcopy(cfg)
+        cfg = deep_merge(cfg, read_settings(settings_path()))
         if args.board is not None:
             cfg["board"]["id"] = args.board
         if args.sprint_prefix is not None:
@@ -999,19 +1365,36 @@ def main(argv=None):
         if env_file and not os.path.isfile(env_file):
             raise ConfigError(f"Env file not found: {env_file}")
         load_env_file(env_file or os.path.join(HERE, ".env"))
+        if args.list_boards is not None or args.list_fields:
+            connect(cfg)
+            try:
+                return list_boards(args.list_boards) if args.list_boards is not None else list_fields()
+            except Exception as ex:
+                print(f"Jira lookup failed: {describe(ex)}", file=sys.stderr)
+                return 1
         warnings = configure(cfg)
         connect(cfg)
     except ConfigError as ex:
         print(f"Config error: {ex}", file=sys.stderr)
         return 2
+    if args.check:
+        for w in warnings:
+            print(f"Warning: {w}", file=sys.stderr)
+        return check()
     for w in warnings:
         print(f"Warning: {w}", file=sys.stderr)
     port = args.port or int(cfg["server"].get("port") or 8765)
     ALLOWED_HOSTS.update({f"localhost:{port}", f"127.0.0.1:{port}"})
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    try:
+        srv = Server(("127.0.0.1", port), Handler)
+    except OSError as ex:
+        print(f"Cannot listen on 127.0.0.1:{port} ({ex.strerror or ex}). Pick another port with --port.", file=sys.stderr)
+        return 2
     url = f"http://localhost:{port}"
-    print(f"Sprint Focus Board: {url}  ({'config ' + path if path else 'built-in defaults'}; Ctrl+C to stop)")
-    if BURN["enabled"]:
+    print(f"Sprint Focus Board: {url}  ({'config ' + path if path else 'built-in defaults'}; Ctrl+C to stop)", flush=True)
+    if SETUP_REQUIRED:
+        print(f"No board is set yet: open {url} and finish the setup there. It is saved to {settings_path()}.", flush=True)
+    elif BURN["enabled"]:
         # The sprint-wide burndown reads every changelog once; warm that cache before the page asks for it.
         threading.Thread(target=burn_json, args=(today(), True), daemon=True).start()
     if args.open:

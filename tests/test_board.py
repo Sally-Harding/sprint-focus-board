@@ -38,9 +38,20 @@ class ConfigFileTest(unittest.TestCase):
         finally:
             os.unlink(fh.name)
 
-    def test_missing_board_id_is_an_error(self):
-        with self.assertRaises(board.ConfigError):
-            board.configure(board.deep_merge(board.DEFAULTS, {}))
+    def test_plain_http_only_on_loopback(self):
+        cfg = board.deep_merge(board.DEFAULTS, {"jira": {"email": "a@example.com"}})
+        with mock.patch.dict(os.environ, {"JIRA_API_TOKEN": "t", "JIRA_BASE_URL": "http://127.0.0.1:9999"}):
+            board.connect(cfg)
+            self.assertEqual(board.BASE, "http://127.0.0.1:9999")
+        with mock.patch.dict(os.environ, {"JIRA_API_TOKEN": "t", "JIRA_BASE_URL": "http://jira.example.com"}):
+            with self.assertRaises(board.ConfigError):
+                board.connect(cfg)
+
+    def test_missing_board_id_starts_the_setup(self):
+        board.configure(board.deep_merge(board.DEFAULTS, {}))
+        self.assertTrue(board.SETUP_REQUIRED)
+        configured()
+        self.assertFalse(board.SETUP_REQUIRED)
 
     def test_env_file_does_not_override_the_environment(self):
         with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as fh:
@@ -117,6 +128,67 @@ class BoardTest(unittest.TestCase):
                          {"todo": 0, "reopened": 0, "progress": 0, "blocked": 0, "toreview": 1, "inreview": 1, "merge": 2})
 
 
+class SetupTest(unittest.TestCase):
+    def test_sprint_prefix_suggestion(self):
+        self.assertEqual(board.suggest_prefix("TEAM Sprint 42"), "TEAM")
+        self.assertEqual(board.suggest_prefix("Mobile team - 7"), "Mobile team")
+        self.assertEqual(board.suggest_prefix("Sprint 12"), "")
+
+    def test_keywords_are_whole_words(self):
+        chans = board.compile_channels([{"id": "pay", "keywords": ["pay", "Acme Client"]}])
+        issue = lambda s: {"fields": {"summary": s}}  # noqa: E731
+        self.assertEqual(board.channels_of(issue("Pay the invoice"), {}, chans), ["pay"])
+        self.assertEqual(board.channels_of(issue("Fix the acme client login"), {}, chans), ["pay"])
+        self.assertEqual(board.channels_of(issue("Payroll export"), {}, chans), [])
+
+    def test_save_writes_settings_over_the_config(self):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "settings.json")
+        base = board.deep_merge(board.DEFAULTS, {"ui": {"defaultLanguage": "tr"}})
+        with mock.patch.dict(os.environ, {"BOARD_SETTINGS": path}), mock.patch.object(board, "BASE_CFG", base), \
+                mock.patch.object(board, "burn_json"):
+            board.configure(base)
+            self.assertTrue(board.SETUP_REQUIRED)
+            board.setup_save({"board": {"id": 5, "sprintNamePrefix": "TEAM"}, "team": [{"id": "u1", "name": "Ann"}],
+                              "channels": [{"id": "web", "name": "Web", "keywords": ["web"]}],
+                              "prompts": {"todo": {"prompt": "/start {key}"}}, "refreshSeconds": 120})
+            saved = board.read_settings(path)
+        self.assertFalse(board.SETUP_REQUIRED)
+        self.assertEqual(saved["board"], {"id": 5, "sprintNamePrefix": "TEAM"})
+        self.assertEqual(board.CFG["ui"], {"defaultLanguage": "tr", "refreshSeconds": 120})
+        self.assertEqual([c["id"] for c in board.CHANNELS], ["web"])
+        todo = [c for c in board.COLUMNS if c["id"] == "todo"][0]
+        self.assertEqual(todo["prompt"], "/start {key}")
+        self.assertEqual(todo["defaultPrompt"], board.PROMPTS["todo"])
+        self.assertEqual(board.TEAM, [{"id": "u1", "name": "Ann", "avatar": ""}])
+
+    def test_post_needs_token_origin_and_json(self):
+        import threading
+        import urllib.error
+        import urllib.request
+        configured()
+        srv = board.Server(("127.0.0.1", 0), board.Handler)
+        port = srv.server_address[1]
+        board.ALLOWED_HOSTS.update({f"localhost:{port}", f"127.0.0.1:{port}"})
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+        def post(headers):
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/api/setup/preview", data=b'{"sprint": 1, "channels": []}', method="POST",
+                                         headers=dict({"Content-Type": "application/json"}, **headers))
+            try:
+                return urllib.request.urlopen(req, timeout=5).status
+            except urllib.error.HTTPError as ex:
+                return ex.code
+        try:
+            with mock.patch.object(board, "sprint_issues", return_value=([], {})):
+                self.assertEqual(post({}), 403)
+                self.assertEqual(post({"X-Setup-Token": board.SETUP_TOKEN, "Origin": "https://evil.example"}), 403)
+                self.assertEqual(post({"X-Setup-Token": board.SETUP_TOKEN, "Origin": f"http://localhost:{port}"}), 200)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+
 def change(at, author, *items):
     return {"created": at, "author": {"accountId": author}, "items": list(items)}
 
@@ -152,6 +224,46 @@ class BurndownTest(unittest.TestCase):
         ], comments=[comment], estimateComment={"enabled": True})
         got = [(e["stage"], e["author"], e["hours"], e["reason"]) for e in out["events"]]
         self.assertEqual(got, [("dev", "dev", 2.0, None), ("rev", "dev", 0, "own"), ("mr", "lead", 0.25, None)])
+
+
+class DemoTest(unittest.TestCase):
+    def test_demo_data_drives_the_burndown(self):
+        sys.path.insert(0, os.path.join(board.HERE, "demo"))
+        import demo
+        data = demo.Data("http://127.0.0.1:1")
+        cfg, _ = board.read_config(os.path.join(board.HERE, "demo", "config.jsonc"))
+        board.configure(cfg)
+        detail = {k: (data.histories[k], board.estimate(data.comments(k)), {w["id"]: w["started"] for w in data.worklogs.get(k, [])})
+                  for k in data.histories}
+        with mock.patch.object(board, "search", side_effect=lambda jql, f: data.search(jql, f)["issues"]), \
+                mock.patch.object(board, "issue_detail", side_effect=lambda k, u: detail[k]):
+            out = board.burn_events(board.today(), board.today(), {"id": 42})
+        mine = [r for r in out["remaining"] if r["author"] == "demo-alex"]
+        self.assertEqual(sum(max(0, r["before"] - r["after"]) for r in mine), 4.25)
+        self.assertEqual(sorted(e["stage"] for e in out["events"] if e["author"] == "demo-alex"), ["dev", "mr", "rev"])
+        self.assertEqual([r["key"] for r in out["doneLeft"]], ["DEMO-41"])
+
+    def test_check_reports_channel_candidates_and_matches(self):
+        import contextlib
+        import io
+        sys.path.insert(0, os.path.join(board.HERE, "demo"))
+        import demo
+        data = demo.Data("http://127.0.0.1:1")
+        cfg, _ = board.read_config(os.path.join(board.HERE, "demo", "config.jsonc"))
+        for channels in (cfg["channels"], []):
+            board.configure(dict(cfg, channels=channels))
+            buf = io.StringIO()
+            with mock.patch.object(board, "search", side_effect=lambda jql, f: data.search(jql, f)["issues"]), \
+                    mock.patch.object(board, "myself", return_value={"name": "Alex"}), \
+                    mock.patch.object(board, "active_sprint", return_value=data.sprint()), contextlib.redirect_stdout(buf):
+                self.assertEqual(board.check(), 0)
+            text = buf.getvalue()
+            self.assertIn("DEMO-1  Payments platform", text)
+            if channels:
+                self.assertIn("Channel 'Payments': ", text)
+                self.assertIn("Channel 'Other (no channel)': ", text)
+            else:
+                self.assertIn("No channels configured", text)
 
 
 if __name__ == "__main__":

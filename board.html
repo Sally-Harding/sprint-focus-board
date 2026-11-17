@@ -109,7 +109,7 @@ svg{flex:none;display:block}
 .burn.low{--lv:var(--p1)}
 .burn.mid{--lv:var(--p2)}
 .burn.ok{--lv:var(--p4)}
-@media (max-width:1700px){#motion span,.search kbd{display:none}.burnw{margin-left:12px}.search{min-width:80px}}
+@media (max-width:1700px){#motion span,#settings span,.search kbd{display:none}.burnw{margin-left:12px}.search{min-width:80px}}
 .burn b{font-family:var(--f-data);font-weight:500;color:var(--lv);font-size:14px}
 .burn small{color:var(--ink-3);font-size:11.5px}
 .burn .bar{width:46px;height:4px;border-radius:2px;background:var(--hair);overflow:hidden}
@@ -269,6 +269,72 @@ svg{flex:none;display:block}
 .toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .toast button{border:0;background:none;color:#9DB0FF;font-weight:700;cursor:pointer;padding:2px 4px}
 
+/* setup wizard */
+.setup{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:rgba(236,239,243,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.setup[hidden]{display:none}
+.su{width:min(980px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:rgba(255,255,255,.94);border:.5px solid var(--hair-2);
+  border-radius:14px;box-shadow:0 40px 80px -30px rgba(20,30,70,.45),0 1px 2px rgba(20,30,70,.08)}
+.su-top{flex:none;padding:20px 24px 14px;border-bottom:.5px solid var(--hair)}
+.su-top h2{margin:0;font:500 21px/1.2 var(--f-data);letter-spacing:-.01em}
+.su-top p{margin:4px 0 14px;color:var(--ink-2);font-size:13px}
+.su-steps{display:flex;gap:6px;flex-wrap:wrap}
+.su-steps button{border:.5px solid var(--hair-2);background:#fff;border-radius:999px;padding:4px 12px 4px 6px;font-size:12.5px;color:var(--ink-3);cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.su-steps button b{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--mist);font:600 11px/1 var(--f-data);color:var(--ink-2)}
+.su-steps button.on{border-color:var(--cobalt);color:var(--cobalt)}
+.su-steps button.on b{background:var(--cobalt);color:#fff}
+.su-steps button.done b{background:var(--p4);color:#fff}
+.su-steps button:disabled{cursor:default;opacity:.55}
+.su-body{flex:1;min-height:0;overflow:auto;padding:18px 24px 8px}
+.su-body h4{display:flex;align-items:center;gap:10px;margin:18px 0 8px;font-size:12.5px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:.04em}
+.su-body h4:first-child{margin-top:0}
+.su-hint{margin:4px 0 10px;color:var(--ink-3);font-size:12.5px;line-height:1.45}
+.su-f{display:block;margin:0 0 10px}
+.su-f>span{display:block;font-size:12px;color:var(--ink-2);margin-bottom:4px}
+.su input[type=text],.su input[type=search]{width:100%;height:34px;border:.5px solid var(--hair-2);border-radius:8px;padding:0 10px;background:#fff}
+.su input:focus{outline:none;border-color:var(--cobalt);box-shadow:0 0 0 3px var(--cobalt-soft)}
+.su-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:6px;max-height:240px;overflow:auto;padding:2px}
+.su-opt{display:flex;align-items:center;gap:10px;text-align:left;border:.5px solid var(--hair-2);background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;min-width:0}
+.su-opt:hover{border-color:var(--cobalt)}
+.su-opt.on{border-color:var(--cobalt);box-shadow:0 0 0 2px var(--cobalt-soft);background:#F7F9FF}
+.su-opt i{flex:none;width:14px;height:14px;border-radius:50%;border:1.5px solid var(--hair-2);font-style:normal}
+.su-opt.on i{border:4px solid var(--cobalt)}
+.su-opt span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.su-opt small{display:block;color:var(--ink-3);font-size:11.5px}
+.su-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:30px}
+.su-chip{display:inline-flex;align-items:center;gap:7px;border:.5px solid var(--hair-2);background:#fff;border-radius:999px;padding:3px 10px 3px 3px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.su-chip.add{color:var(--ink-2);padding-left:9px}
+.su-chip.add:hover{border-color:var(--cobalt);color:var(--cobalt)}
+.su-chip .av{width:22px;height:22px}.su-chip .av.ini{font-size:9px}
+.su-chip em{font-style:normal;color:var(--ink-3)}
+.su-chip x{color:var(--ink-3);font-weight:700}
+.su-chs{display:grid;gap:10px}
+.su-ch{border:.5px solid var(--hair-2);border-radius:11px;padding:10px 12px;background:#fff}
+.su-ch.on{border-color:var(--cobalt);box-shadow:0 0 0 2px var(--cobalt-soft)}
+.su-ch-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.su-ch-h .dot{flex:none;width:12px;height:12px;border-radius:50%;cursor:pointer}
+.su-ch-h input{max-width:240px}
+.su-n{margin-left:auto;font:500 12.5px var(--f-data);color:var(--cobalt);white-space:nowrap}
+.su-n.zero{color:var(--p1)}
+.su-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.su-grid .su-f{margin:0}
+.su-x{border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:16px;line-height:1;padding:4px 6px;border-radius:6px}
+.su-x:hover{background:var(--mist);color:var(--ink)}
+.su-cands{display:grid;gap:8px}
+.su-cands>div{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.su-cands>div>b{font-size:12px;font-weight:600;color:var(--ink-2);min-width:96px}
+.su-other{margin-top:10px;font-size:12.5px;color:var(--ink-2)}
+.su-ta{display:block;width:100%;min-height:96px;resize:vertical;border:.5px solid var(--hair-2);border-radius:8px;padding:8px 10px;background:#fff;
+  font:12.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--ink)}
+.su-ta:focus{outline:none;border-color:var(--cobalt);box-shadow:0 0 0 3px var(--cobalt-soft)}
+.su-ch-h b{font:500 14px var(--f-data)}
+.su-sum{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;margin:0;font-size:13px}
+.su-sum dt{color:var(--ink-3)}.su-sum dd{margin:0}
+.su-bot{flex:none;display:flex;align-items:center;gap:8px;padding:12px 24px;border-top:.5px solid var(--hair)}
+.su-bot .su-err{flex:1;color:var(--p1);font-size:12.5px}
+.su-bot .tb.primary{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.su-bot .tb.primary:hover{background:#1B36D9}
+@media (max-width:700px){.su-grid{grid-template-columns:1fr}.setup{padding:8px}}
+
 @media (max-width:1280px){.spr .left{display:none}.search{width:200px}}
 @media (max-width:900px){
   body{overflow:auto}
@@ -300,6 +366,7 @@ html[data-motion="off"] *{transition:none!important;animation:none!important}
   <div class="seg" role="group" id="lang"><button type="button" data-lang="tr">TR</button><button type="button" data-lang="en">EN</button></div>
   <button type="button" class="tb" id="motion" aria-pressed="false"></button>
   <button type="button" class="tb" id="refresh"></button>
+  <button type="button" class="tb" id="settings"></button>
 </header>
 <div class="err" id="err" hidden><span id="errMsg"></span><button type="button" class="tb" id="retry"></button></div>
 <main class="bays" id="board"></main>
@@ -374,6 +441,7 @@ var ICON={
   fold:svg('<path d="m15 6-6 6 6 6"/>'),unfold:svg('<path d="m9 6 6 6-6 6"/>'),
   wave:svg('<path d="M2 12c2.5-4 5-4 7.5 0s5 4 7.5 0 3.5-2.7 5-2"/>',15),
   burn:svg('<path d="M4 3.5v16.5h16.5"/><path d="M7.5 6.5l3.5 4 3-1.5 5 7"/><circle cx="19" cy="16" r=".6" fill="currentColor"/>',16),
+  gear:svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.4"/>',14),
   story:'<svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h9v13l-4.5-3-4.5 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
 };
 function typeGlyph(t){
@@ -480,9 +548,16 @@ var PRIO={
 function hideKey(r){return sel+'|'+r.key}
 function isHidden(r){return hidden[hideKey(r)]===r.status}
 
-function peopleList(){
+/* The picker shows the configured team (with fresher names and avatars from the sprint), else everyone in the sprint. */
+function sprintPeople(){
   var m={};function add(p){if(p&&p.id&&!m[p.id])m[p.id]=p}
-  add(data.me);data.rows.forEach(function(r){add(r.assignee);ROLES.forEach(function(x){roleList(r,x.id).forEach(add)})});
+  data.rows.forEach(function(r){add(r.assignee);ROLES.forEach(function(x){roleList(r,x.id).forEach(add)})});
+  return m;
+}
+function peopleList(){
+  var sp=sprintPeople(),m={};function add(p){if(p&&p.id&&!m[p.id])m[p.id]=sp[p.id]||p}
+  add(data.me);
+  if((CFG.team||[]).length)CFG.team.forEach(add);else Object.keys(sp).forEach(function(k){add(sp[k])});
   return Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){
     if(a.id===data.me.id)return -1;if(b.id===data.me.id)return 1;return a.name.localeCompare(b.name)});
 }
@@ -587,6 +662,7 @@ function renderChrome(){
   $('retry').textContent=t.retry;
   var mo=motionOn(),mb=$('motion');
   mb.innerHTML=ICON.wave+'<span>'+h(t.motion)+'</span>';mb.setAttribute('aria-pressed',String(mo));mb.title=mo?t.motionOn:t.motionOff;
+  var sb=$('settings');sb.innerHTML=ICON.gear+'<span>'+h(ST[lang].settings)+'</span>';sb.title=ST[lang].settingsTip;sb.setAttribute('aria-label',ST[lang].settings);
 }
 function renderChan(){
   var t=T[lang],c=$('chan');
@@ -650,7 +726,7 @@ function renderAll(fromLoad){renderChrome();if(!data)return;renderPeople();rende
 function skeleton(){var o='';COLS.forEach(function(c){o+='<section class="bay" style="--sc:'+h(c.color)+'"><div class="bh"><div class="bh-r"><h2>'+h(c.name)+'</h2></div><div class="rule">&nbsp;</div></div><div class="slot"><div class="skel"></div><div class="skel"></div></div></section>'});$('board').innerHTML=o}
 
 function load(force){
-  if(loading)return Promise.resolve();loading=true;renderChrome();if(BURNCFG.enabled){loadBurn(force);loadSprintBurn(force)}
+  if(loading||SETUP.required)return Promise.resolve();loading=true;renderChrome();if(BURNCFG.enabled){loadBurn(force);loadSprintBurn(force)}
   return fetch('/api/board'+(force?'?force=1':''),{cache:'no-store'}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j})})
   .then(function(j){
     data=j;lastFetch=Date.now();$('err').hidden=true;
@@ -719,7 +795,7 @@ document.addEventListener('input',function(e){
 document.addEventListener('keydown',function(e){
   var typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName);
   if(e.key==='/'&&!typing){e.preventDefault();$('q').focus()}
-  if(e.key==='Escape'){var p=$('pop');if(p&&!p.hidden){p.hidden=true;return}if(!$('bpop').hidden){$('bpop').hidden=true;$('burn').setAttribute('aria-expanded','false');return}if(document.activeElement===$('q')&&$('q').value){$('q').value='';renderBoard()}}
+  if(e.key==='Escape'){if(W&&!W.required){closeSetup();return}var p=$('pop');if(p&&!p.hidden){p.hidden=true;return}if(!$('bpop').hidden){$('bpop').hidden=true;$('burn').setAttribute('aria-expanded','false');return}if(document.activeElement===$('q')&&$('q').value){$('q').value='';renderBoard()}}
 });
 $('hiddenBtn').addEventListener('click',function(){showHidden=!showHidden;renderBoard()});
 $('refresh').addEventListener('click',function(){playShow(load(true))});
@@ -852,7 +928,300 @@ function playShow(p){
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&show)show.skip=true});
 
-skeleton();renderChrome();playShow(load(false));
+/* Setup wizard: the board's sprint, the team, channels, column prompts and the refresh rate, saved by the
+   server to its settings file. It opens by itself until a board is set; the Settings button reopens it. */
+var SETUP=CFG.setup||{},W=null,PAL=['#7FA0FF','#4FD1BE','#F7A35C','#C38BFF','#FF7AA2','#6FCF97'];
+var PLACEHOLDERS='{key} {summary} {url} {type} {status} {parentKey} {parentSummary} {assignee}';
+var ST={
+  en:{settings:'Settings',settingsTip:'Change the sprint, team, channels, prompts and refresh rate',
+    title:'Set up the board',intro:'A few choices for this board. You can change them any time with Settings.',
+    steps:['Sprint','Team','Channels','Prompts','Refresh'],back:'Back',next:'Next',save:'Save',cancel:'Cancel',saving:'Saving…',loading:'Loading…',
+    boardH:'Board',boardPh:'Search scrum boards by name',noBoards:'No scrum board matches.',
+    sprintH:'Active sprint',pickBoard:'Pick a board first.',noSprint:'This board has no active sprint. Start one in Jira, or pick another board.',
+    prefix:'Later sprints',
+    prefixHint:function(p,n){return (p?'The board follows the first active sprint whose name starts with “'+p+'”.':'The board follows the first active sprint on this board.')+' '+(n?'Today that is '+n+'.':'No active sprint matches today.')},
+    teamHint:'The people in the person picker. You are always in it. Leave the list empty to show everyone in the sprint.',
+    emptyTeam:'Nobody picked yet: the picker shows everyone in the sprint.',fromSprint:'In this sprint',addAll:'Add all',
+    findH:'Find someone in Jira',findPh:'Name or email, at least 2 letters',noUsers:'Nobody found.',
+    chanHint:'Channels are filter chips for a sprint that mixes work streams, such as products, clients or projects. A ticket can be in several; a ticket in none is “Other”. They filter To Do and the review columns; a person’s own work always shows.',
+    chanNo:'No channels',chanYes:'Use channels',noChanNote:'The header shows no channel chips and no column filters by channel.',
+    ruleHint:'A ticket joins a channel when any rule matches. Epic keys match the ticket’s epic. Labels and components take * and ? patterns and also look at the parent story. Title keywords are whole words or phrases, searched in the ticket, story and epic titles. Separate values with commas.',
+    name:'Channel name',epics:'Epic keys',labels:'Labels',components:'Components',keywords:'Title keywords',regex:'Title pattern (regular expression)',
+    addChan:'Add a channel',removeChan:'Remove this channel',color:'Change the colour',
+    cands:'In this sprint: click one to add it to the highlighted channel',noCands:'This sprint has no epics, labels or components.',
+    matches:function(n,t){return n+' of '+t+' tickets'},other:function(n,t){return 'Other (no channel): '+n+' of '+t+' open tickets'},
+    promptHint:'The text each card’s Prompt button copies. Placeholders: '+PLACEHOLDERS+'. Point the prompts at your own commands or skills, for example “/review {key}”.',
+    editLang:'Editing',langName:{en:'English',tr:'Turkish'},whenOther:'When the picked person is not the assignee',reset:'Reset to default',
+    refreshH:'Refresh',refreshHint:'How often an open board reloads from Jira.',
+    every:function(s){return s<60?s+' seconds':s===60?'1 minute':(Math.round(s/6)/10)+' minutes'},
+    sumH:'Summary',sBoard:'Board',sSprint:'Sprint',sTeam:'Team',sChan:'Channels',sPrompts:'Prompts',
+    nPeople:function(n){return n?n+(n===1?' person':' people'):'everyone in the sprint'},nChan:function(n){return n?n+(n===1?' channel':' channels'):'none'},
+    nPrompts:function(n){return n?n+(n===1?' column customised':' columns customised'):'defaults'},err:'Could not save'},
+  tr:{settings:'Ayarlar',settingsTip:'Sprint, takım, kanal, prompt ve yenileme ayarlarını değiştir',
+    title:'Board kurulumu',intro:'Bu board için birkaç seçim. İstediğin zaman Ayarlar’dan değiştirebilirsin.',
+    steps:['Sprint','Takım','Kanallar','Prompt’lar','Yenileme'],back:'Geri',next:'İleri',save:'Kaydet',cancel:'Vazgeç',saving:'Kaydediliyor…',loading:'Yükleniyor…',
+    boardH:'Board',boardPh:'Scrum board’ları adıyla ara',noBoards:'Eşleşen scrum board yok.',
+    sprintH:'Aktif sprint',pickBoard:'Önce bir board seç.',noSprint:'Bu board’da aktif sprint yok. Jira’da bir sprint başlat ya da başka bir board seç.',
+    prefix:'Sonraki sprintler',
+    prefixHint:function(p,n){return (p?'Board, adı “'+p+'” ile başlayan ilk aktif sprinti izler.':'Board, bu board’daki ilk aktif sprinti izler.')+' '+(n?'Bugün bu: '+n+'.':'Bugün eşleşen aktif sprint yok.')},
+    teamHint:'Kişi seçicide görünen kişiler. Sen her zaman oradasın. Liste boş kalırsa sprintteki herkes görünür.',
+    emptyTeam:'Henüz kimse seçilmedi: kişi seçici sprintteki herkesi gösterir.',fromSprint:'Bu sprintte',addAll:'Hepsini ekle',
+    findH:'Jira’da kişi ara',findPh:'Ad ya da e-posta, en az 2 harf',noUsers:'Kimse bulunamadı.',
+    chanHint:'Kanallar, ürün, müşteri ya da proje gibi iş akışlarını karıştıran bir sprint için filtre chip’leridir. Bir iş birden fazla kanalda olabilir; hiçbirinde olmayan iş “Diğer”dir. To Do ve review kolonlarını süzer; kişinin kendi işleri her zaman görünür.',
+    chanNo:'Kanal yok',chanYes:'Kanal kullan',noChanNote:'Header’da kanal chip’i görünmez ve hiçbir kolon kanala göre süzülmez.',
+    ruleHint:'Bir iş, kurallardan biri tutarsa kanala girer. Epic key’leri işin epic’iyle eşleşir. Label ve component’ler * ve ? kalıplarını alır, parent story’ye de bakar. Başlık kelimeleri tam kelime ya da ifadedir; iş, story ve epic başlıklarında aranır. Değerleri virgülle ayır.',
+    name:'Kanal adı',epics:'Epic key’leri',labels:'Label’lar',components:'Component’ler',keywords:'Başlık kelimeleri',regex:'Başlık kalıbı (regular expression)',
+    addChan:'Kanal ekle',removeChan:'Bu kanalı kaldır',color:'Rengi değiştir',
+    cands:'Bu sprintte: işaretli kanala eklemek için tıkla',noCands:'Bu sprintte epic, label ya da component yok.',
+    matches:function(n,t){return n+' / '+t+' iş'},other:function(n,t){return 'Diğer (kanalsız): '+n+' / '+t+' açık iş'},
+    promptHint:'Kartlardaki Prompt düğmesinin kopyaladığı metin. Yer tutucular: '+PLACEHOLDERS+'. Prompt’ları kendi komutlarına ya da skill’lerine yönlendirebilirsin, örneğin “/review {key}”.',
+    editLang:'Düzenlenen',langName:{en:'İngilizce',tr:'Türkçe'},whenOther:'Seçili kişi assignee değilse',reset:'Varsayılana dön',
+    refreshH:'Yenileme',refreshHint:'Açık bir board’un Jira’dan ne sıklıkla yeniden yükleneceği.',
+    every:function(s){return s<60?s+' saniye':(Math.round(s/6)/10)+' dakika'},
+    sumH:'Özet',sBoard:'Board',sSprint:'Sprint',sTeam:'Takım',sChan:'Kanallar',sPrompts:'Prompt’lar',
+    nPeople:function(n){return n?n+' kişi':'sprintteki herkes'},nChan:function(n){return n?n+' kanal':'yok'},
+    nPrompts:function(n){return n?n+' kolon özelleştirildi':'varsayılan'},err:'Kaydedilemedi'}
+};
+function clone(v){return v==null?null:JSON.parse(JSON.stringify(v))}
+function api(path,body){
+  var o=body?{method:'POST',headers:{'Content-Type':'application/json','X-Setup-Token':SETUP.token},body:JSON.stringify(body)}:{cache:'no-store'};
+  return fetch('/api/setup/'+path,o).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j})});
+}
+function split(s){return String(s||'').split(',').map(function(x){return x.trim()}).filter(Boolean)}
+function slug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,32)}
+function chanDraft(c,i){return {id:c.id||'',name:c.name||c.id||'',color:c.color||PAL[i%PAL.length],epics:(c.epics||[]).join(', '),labels:(c.labels||[]).join(', '),
+  components:(c.components||[]).join(', '),keywords:(c.keywords||[]).join(', '),summary:c.summary||''}}
+function setErr(m){if(!W)return;W.error=m||'';var e=$('suErr');if(e)e.textContent=W.error}
+function fail(e){setErr(e.message)}
+function canGo(i){return i===0||!!(W.board&&W.sprint)}
+
+function openSetup(required){
+  var cur=SETUP.board||{},sp=data?sprintPeople():{};
+  W={required:required,step:0,boards:null,boardQ:'',board:null,sprints:null,sprint:null,prefix:cur.sprintNamePrefix||'',facts:null,
+    team:(CFG.team||[]).map(function(p){return clone(sp[p.id]||p)}),known:{},users:[],userQ:'',
+    useChan:(SETUP.channels||[]).length>0,chans:(SETUP.channels||[]).map(chanDraft),active:0,preview:null,
+    prompts:{},plang:lang,refresh:+UI.refreshSeconds||60,busy:false,error:''};
+  COLS.forEach(function(c){W.prompts[c.id]={prompt:clone(c.prompt),promptIfNotAssignee:clone(c.promptIfNotAssignee)}});
+  renderSetup();loadBoards('');
+  if(cur.id)api('boards?id='+cur.id).then(function(b){if(!W)return;W.board=b[0];fillBoards();loadSprints(true)}).catch(fail);
+}
+function closeSetup(){var o=$('setup');if(o)o.hidden=true;W=null}
+
+function renderSetup(){
+  var t=ST[lang],o=$('setup'),s=W.step;
+  if(!o){o=document.createElement('div');o.id='setup';o.className='setup';o.setAttribute('role','dialog');o.setAttribute('aria-modal','true');document.body.appendChild(o)}
+  o.hidden=false;o.setAttribute('aria-label',t.title);
+  var steps=t.steps.map(function(n,i){return '<button type="button" data-su-step="'+i+'" class="'+(i===s?'on':i<s?'done':'')+'"'+(canGo(i)?'':' disabled')+'><b>'+(i+1)+'</b>'+h(n)+'</button>'}).join('');
+  o.innerHTML='<div class="su"><div class="su-top"><h2>'+h(t.title)+'</h2><p>'+h(t.intro)+'</p><div class="su-steps">'+steps+'</div></div>'+
+    '<div class="su-body">'+[stepSprint,stepTeam,stepChannels,stepPrompts,stepRefresh][s]()+'</div>'+
+    '<div class="su-bot"><span class="su-err" id="suErr" role="alert">'+h(W.error)+'</span>'+
+    (W.required?'':'<button type="button" class="tb" data-su="cancel">'+h(t.cancel)+'</button>')+
+    (s?'<button type="button" class="tb" data-su="back">'+h(t.back)+'</button>':'')+
+    (s<4?'<button type="button" class="tb primary" data-su="next"'+(canGo(s+1)?'':' disabled')+'>'+h(t.next)+'</button>'
+        :'<button type="button" class="tb primary" data-su="save"'+(W.busy?' disabled':'')+'>'+h(W.busy?t.saving:t.save)+'</button>')+'</div></div>';
+  if(s===0){fillBoards();fillSprints()}
+  if(s===1){fillTeam();fillSprintPeople();fillUsers();ensureFacts()}
+  if(s===2&&W.useChan){fillCands();fillCounts();ensureFacts();schedulePreview()}
+}
+function updateNav(){
+  if(!W)return;
+  [].forEach.call(document.querySelectorAll('[data-su-step]'),function(b){b.disabled=!canGo(+b.dataset.suStep)});
+  var n=document.querySelector('[data-su="next"]');if(n)n.disabled=!canGo(W.step+1);
+}
+
+function stepSprint(){var t=ST[lang];
+  return '<h4>'+h(t.boardH)+'</h4><input type="search" id="suBoardQ" placeholder="'+h(t.boardPh)+'" value="'+h(W.boardQ)+'" autocomplete="off">'+
+    '<div class="su-list" id="suBoards" style="margin-top:8px"></div><h4>'+h(t.sprintH)+'</h4><div class="su-list" id="suSprints"></div>'+
+    '<label class="su-f" style="margin-top:14px"><span>'+h(t.prefix)+'</span><input type="text" id="suPrefix" value="'+h(W.prefix)+'" autocomplete="off" spellcheck="false"></label>'+
+    '<p class="su-hint" id="suPrefixHint"></p>';
+}
+function loadBoards(q){api('boards?q='+encodeURIComponent(q)).then(function(b){if(W&&W.boardQ===q){W.boards=b;fillBoards()}}).catch(fail)}
+function loadSprints(keep){
+  var b=W.board;
+  api('sprints?board='+b.id).then(function(s){
+    if(!W||W.board!==b)return;W.sprints=s;
+    var m=keep?prefixMatch():null;if(!m&&s.length===1)m=s[0];if(m)chooseSprint(m,keep);
+    fillSprints();updateNav();
+  }).catch(function(e){if(W&&W.board===b){W.sprints=[];fillSprints()}fail(e)});
+}
+function prefixMatch(){var s=W.sprints||[];for(var i=0;i<s.length;i++)if(s[i].name.indexOf(W.prefix)===0)return s[i];return null}
+function chooseSprint(s,keep){
+  if(!W.sprint||W.sprint.id!==s.id){W.facts=null;W.preview=null}
+  W.sprint=s;if(!keep)W.prefix=s.prefix;var p=$('suPrefix');if(p)p.value=W.prefix;
+}
+function fillBoards(){
+  var t=ST[lang],el=$('suBoards');if(!el)return;
+  if(!W.boards){el.innerHTML='<p class="su-hint">'+h(t.loading)+'</p>';return}
+  var list=W.boards.slice();if(W.board&&!list.some(function(b){return b.id===W.board.id}))list.unshift(W.board);
+  el.innerHTML=list.length?list.map(function(b){return '<button type="button" class="su-opt'+(W.board&&W.board.id===b.id?' on':'')+'" data-su-board="'+b.id+'"><i></i><span>'+h(b.name)+
+    '<small>'+h((b.project?b.project+' · ':'')+'#'+b.id)+'</small></span></button>'}).join(''):'<p class="su-hint">'+h(t.noBoards)+'</p>';
+}
+function shortDay(s){return s?new Date(s).toLocaleDateString(lang==='tr'?'tr-TR':'en-GB',{day:'numeric',month:'short'}):''}
+function fillSprints(){
+  var t=ST[lang],el=$('suSprints');if(!el)return;
+  if(!W.board)el.innerHTML='<p class="su-hint">'+h(t.pickBoard)+'</p>';
+  else if(!W.sprints)el.innerHTML='<p class="su-hint">'+h(t.loading)+'</p>';
+  else if(!W.sprints.length)el.innerHTML='<p class="su-hint">'+h(t.noSprint)+'</p>';
+  else el.innerHTML=W.sprints.map(function(s){return '<button type="button" class="su-opt'+(W.sprint&&W.sprint.id===s.id?' on':'')+'" data-su-sprint="'+s.id+'"><i></i><span>'+h(s.name)+
+    '<small>'+h(shortDay(s.startDate)+' – '+shortDay(s.endDate))+'</small></span></button>'}).join('');
+  fillPrefixHint();
+}
+function fillPrefixHint(){var el=$('suPrefixHint');if(!el)return;var m=W.sprints?prefixMatch():null;el.textContent=W.sprints?ST[lang].prefixHint(W.prefix,m&&m.name):''}
+
+function ensureFacts(){
+  if(!W.sprint||W.facts||W.factsFor===W.sprint.id)return;
+  var sid=W.sprint.id;W.factsFor=sid;
+  api('sprint?sprint='+sid).then(function(f){
+    if(!W||!W.sprint||W.sprint.id!==sid)return;W.facts=f;f.people.forEach(function(p){W.known[p.id]=p});
+    if(W.step===1){fillSprintPeople();fillTeam()}if(W.step===2){fillCands();schedulePreview()}
+  }).catch(function(e){if(W)W.factsFor=null;fail(e)});
+}
+function stepTeam(){var t=ST[lang];
+  return '<p class="su-hint">'+h(t.teamHint)+'</p><div class="su-chips" id="suTeam"></div>'+
+    '<h4>'+h(t.fromSprint)+'<button type="button" class="tb" data-su="addall" style="height:26px;font-size:12px">'+h(t.addAll)+'</button></h4><div class="su-chips" id="suSprintPeople"></div>'+
+    '<h4>'+h(t.findH)+'</h4><input type="search" id="suUserQ" placeholder="'+h(t.findPh)+'" value="'+h(W.userQ)+'" autocomplete="off"><div class="su-chips" id="suUsers" style="margin-top:8px"></div>';
+}
+function inTeam(id){return W.team.some(function(p){return p.id===id})}
+function chip(p,attr,add){return '<button type="button" class="su-chip'+(add?' add':'')+'" '+attr+'="'+h(p.id)+'">'+(add?'+ ':'')+avatar(p)+h(p.name||p.id)+(add?'':' <x aria-hidden="true">×</x>')+'</button>'}
+function fillTeam(){var el=$('suTeam');if(el)el.innerHTML=W.team.length?W.team.map(function(p){return chip(p,'data-su-rm')}).join(''):'<p class="su-hint">'+h(ST[lang].emptyTeam)+'</p>'}
+function fillSprintPeople(){
+  var el=$('suSprintPeople');if(!el)return;
+  if(!W.facts){el.innerHTML='<p class="su-hint">'+h(ST[lang].loading)+'</p>';return}
+  el.innerHTML=W.facts.people.filter(function(p){return !inTeam(p.id)}).map(function(p){return chip(p,'data-su-add',true)}).join('');
+}
+function fillUsers(){
+  var el=$('suUsers');if(!el)return;
+  if(W.userQ.trim().length<2){el.innerHTML='';return}
+  var list=W.users.filter(function(p){return !inTeam(p.id)});
+  el.innerHTML=list.length?list.map(function(p){return chip(p,'data-su-add',true)}).join(''):W.users.length?'':'<p class="su-hint">'+h(ST[lang].noUsers)+'</p>';
+}
+
+function stepChannels(){var t=ST[lang];
+  var o='<p class="su-hint">'+h(t.chanHint)+'</p><div class="seg" role="group"><button type="button" data-su-chan="0" aria-pressed="'+!W.useChan+'">'+h(t.chanNo)+
+    '</button><button type="button" data-su-chan="1" aria-pressed="'+W.useChan+'">'+h(t.chanYes)+'</button></div>';
+  if(!W.useChan)return o+'<p class="su-hint" style="margin-top:12px">'+h(t.noChanNote)+'</p>';
+  return o+'<p class="su-hint" style="margin-top:12px">'+h(t.ruleHint)+'</p><div class="su-chs" id="suChans">'+W.chans.map(chanCard).join('')+'</div>'+
+    '<button type="button" class="tb" data-su="addch" style="margin-top:10px">+ '+h(t.addChan)+'</button><p class="su-other" id="suOther"></p>'+
+    '<h4>'+h(t.cands)+'</h4><div class="su-cands" id="suCands"></div>';
+}
+function chanCard(c,i){
+  var t=ST[lang];
+  function f(k,label){return '<label class="su-f"><span>'+h(label)+'</span><input type="text" data-su-k="'+k+'" data-su-i="'+i+'" value="'+h(c[k])+'" autocomplete="off" spellcheck="false"></label>'}
+  return '<div class="su-ch'+(i===W.active?' on':'')+'" data-su-ch="'+i+'"><div class="su-ch-h"><i class="dot" style="background:'+h(c.color)+'" data-su-color="'+i+'" title="'+h(t.color)+'"></i>'+
+    '<input type="text" data-su-k="name" data-su-i="'+i+'" value="'+h(c.name)+'" placeholder="'+h(t.name)+'" aria-label="'+h(t.name)+'"><span class="su-n" id="suN'+i+'"></span>'+
+    '<button type="button" class="su-x" data-su-rmch="'+i+'" title="'+h(t.removeChan)+'" aria-label="'+h(t.removeChan)+'">×</button></div>'+
+    '<div class="su-grid">'+f('epics',t.epics)+f('keywords',t.keywords)+f('labels',t.labels)+f('components',t.components)+(c.summary?f('summary',t.regex):'')+'</div></div>';
+}
+function addChan(){W.chans.push(chanDraft({},W.chans.length));W.active=W.chans.length-1}
+function fillCands(){
+  var t=ST[lang],el=$('suCands');if(!el)return;
+  if(!W.facts){el.innerHTML='<p class="su-hint">'+h(t.loading)+'</p>';return}
+  function row(title,items,k,text){return items.length?'<div><b>'+h(title)+'</b>'+items.map(function(x){var v=k==='epics'?x.key:x.name;
+    return '<button type="button" class="su-chip add" data-su-cand="'+k+'" data-v="'+h(v)+'" title="'+h(text(x))+'">'+h(text(x).length>48?text(x).slice(0,46)+'…':text(x))+' <em>'+x.n+'</em></button>'}).join('')+'</div>':''}
+  var f=W.facts,o=row(t.epics,f.epics.slice(0,15),'epics',function(x){return x.key+' '+x.summary})+row(t.labels,f.labels.slice(0,24),'labels',function(x){return x.name})+
+    row(t.components,f.components.slice(0,24),'components',function(x){return x.name});
+  el.innerHTML=o||'<p class="su-hint">'+h(t.noCands)+'</p>';
+}
+function chanPayload(){
+  var used={};
+  return W.chans.map(function(c,i){
+    if(!c.id){var id=slug(c.name)||'channel-'+(i+1);while(used[id]||id==='other'||W.chans.some(function(x,j){return j!==i&&x.id===id}))id+='-'+(i+1);c.id=id}
+    used[c.id]=1;
+    var o={id:c.id,name:c.name.trim()||c.id,color:c.color,epics:split(c.epics),labels:split(c.labels),components:split(c.components),keywords:split(c.keywords)};
+    if(c.summary.trim())o.summary=c.summary.trim();return o;
+  });
+}
+var pvTimer;function schedulePreview(){clearTimeout(pvTimer);pvTimer=setTimeout(runPreview,350)}
+function runPreview(){
+  if(!W||!W.useChan||!W.sprint||W.step!==2)return;
+  api('preview',{sprint:W.sprint.id,channels:chanPayload()}).then(function(p){if(!W)return;W.preview=p;setErr('');fillCounts()}).catch(fail);
+}
+function fillCounts(){
+  var t=ST[lang],p=W.preview;if(!p)return;
+  W.chans.forEach(function(c,i){var el=$('suN'+i),m=p.matches[c.id];if(!el||!m)return;el.textContent=t.matches(m.n,p.total);el.classList.toggle('zero',!m.n);el.title=m.keys.join(', ')});
+  var o=$('suOther');if(o)o.textContent=t.other(p.matches.other.n,p.total);
+}
+
+function stepPrompts(){var t=ST[lang];
+  var o='<p class="su-hint">'+h(t.promptHint)+'</p><div class="seg" role="group" aria-label="'+h(t.editLang)+'">'+['en','tr'].map(function(l){
+    return '<button type="button" data-su-plang="'+l+'" aria-pressed="'+(W.plang===l)+'">'+h(t.langName[l])+'</button>'}).join('')+'</div>';
+  return o+COLS.map(function(c){var p=W.prompts[c.id];
+    return '<div class="su-ch" style="margin-top:12px"><div class="su-ch-h"><i class="dot" style="background:'+h(c.color)+'"></i><b>'+h(c.name)+'</b><span class="su-n"></span>'+
+      '<button type="button" class="tb" data-su-reset="'+h(c.id)+'" style="height:26px;font-size:12px">'+h(t.reset)+'</button></div>'+promptArea(c.id,'prompt')+
+      (p.promptIfNotAssignee!=null?'<p class="su-hint" style="margin-top:8px">'+h(t.whenOther)+'</p>'+promptArea(c.id,'promptIfNotAssignee'):'')+'</div>'}).join('');
+}
+function ptext(v){return v==null?'':typeof v==='string'?v:(v[W.plang]!=null?v[W.plang]:v.en||'')}
+function promptArea(id,k){return '<textarea class="su-ta" data-su-p="'+h(id)+'" data-su-pk="'+k+'" rows="4" spellcheck="false" aria-label="'+h(id+' '+k)+'">'+h(ptext(W.prompts[id][k]))+'</textarea>'}
+function setPrompt(id,k,text){var cur=W.prompts[id][k];if(cur==null||typeof cur==='string')W.prompts[id][k]=text;else{cur=clone(cur);cur[W.plang]=text;W.prompts[id][k]=cur}}
+function changedPrompts(){
+  var out={};COLS.forEach(function(c){var p=W.prompts[c.id];
+    if(JSON.stringify(p.prompt)!==JSON.stringify(c.defaultPrompt)||JSON.stringify(p.promptIfNotAssignee)!==JSON.stringify(c.defaultPromptIfNotAssignee))out[c.id]=p});
+  return out;
+}
+
+function stepRefresh(){
+  var t=ST[lang],opts=[30,60,120,300,600];if(opts.indexOf(W.refresh)<0)opts.push(W.refresh);opts.sort(function(a,b){return a-b});
+  var m=prefixMatch(),chans=W.useChan?W.chans.length:0;
+  return '<h4>'+h(t.refreshH)+'</h4><p class="su-hint">'+h(t.refreshHint)+'</p><div class="seg" role="group">'+opts.map(function(s){
+      return '<button type="button" data-su-refresh="'+s+'" aria-pressed="'+(W.refresh===s)+'">'+h(t.every(s))+'</button>'}).join('')+'</div>'+
+    '<h4>'+h(t.sumH)+'</h4><dl class="su-sum"><dt>'+h(t.sBoard)+'</dt><dd>'+h(W.board?W.board.name+' (#'+W.board.id+')':'–')+'</dd>'+
+    '<dt>'+h(t.sSprint)+'</dt><dd>'+h(t.prefixHint(W.prefix,m&&m.name))+'</dd><dt>'+h(t.sTeam)+'</dt><dd>'+h(t.nPeople(W.team.length))+'</dd>'+
+    '<dt>'+h(t.sChan)+'</dt><dd>'+h(t.nChan(chans))+'</dd><dt>'+h(t.sPrompts)+'</dt><dd>'+h(t.nPrompts(Object.keys(changedPrompts()).length))+'</dd>'+
+    '<dt>'+h(t.refreshH)+'</dt><dd>'+h(t.every(W.refresh))+'</dd></dl>';
+}
+function saveSetup(){
+  var t=ST[lang];W.busy=true;W.error='';renderSetup();
+  var chans=W.useChan?chanPayload().filter(function(c,i){var d=W.chans[i];return d.name.trim()||d.epics||d.labels||d.components||d.keywords||d.summary}):[];
+  api('save',{board:{id:W.board.id,sprintNamePrefix:W.prefix},team:W.team,channels:chans,prompts:changedPrompts(),refreshSeconds:W.refresh})
+    .then(function(){location.reload()})
+    .catch(function(e){if(!W)return;W.busy=false;W.error=t.err+': '+e.message;renderSetup()});
+}
+
+document.addEventListener('click',function(e){
+  if(!W||!e.target.closest('#setup'))return;
+  var b=e.target.closest('[data-su]'),a=b&&b.dataset.su,x;
+  if(a==='cancel'){closeSetup();return}
+  if(a==='back'){W.step--;W.error='';renderSetup();return}
+  if(a==='next'){if(canGo(W.step+1)){W.step++;W.error='';renderSetup()}return}
+  if(a==='save'){if(W.board&&W.sprint)saveSetup();return}
+  if(a==='addall'&&W.facts){W.facts.people.forEach(function(p){if(!inTeam(p.id))W.team.push(p)});fillTeam();fillSprintPeople();fillUsers();return}
+  if(a==='addch'){addChan();renderSetup();return}
+  if((x=e.target.closest('[data-su-step]'))&&!x.disabled){W.step=+x.dataset.suStep;W.error='';renderSetup();return}
+  if(x=e.target.closest('[data-su-board]')){var id=+x.dataset.suBoard,row=(W.boards||[]).concat(W.board?[W.board]:[]).filter(function(r){return r.id===id})[0];
+    if(row&&(!W.board||W.board.id!==id)){W.board=row;W.sprints=null;W.sprint=null;W.facts=null;W.factsFor=null;W.preview=null;fillBoards();fillSprints();updateNav();loadSprints(false)}return}
+  if(x=e.target.closest('[data-su-sprint]')){var sid=+x.dataset.suSprint;(W.sprints||[]).forEach(function(s){if(s.id===sid)chooseSprint(s,false)});fillSprints();updateNav();return}
+  if(x=e.target.closest('[data-su-add]')){var p=W.known[x.dataset.suAdd];if(p&&!inTeam(p.id))W.team.push(p);fillTeam();fillSprintPeople();fillUsers();return}
+  if(x=e.target.closest('[data-su-rm]')){W.team=W.team.filter(function(p){return p.id!==x.dataset.suRm});fillTeam();fillSprintPeople();fillUsers();return}
+  if(x=e.target.closest('[data-su-chan]')){W.useChan=x.dataset.suChan==='1';if(W.useChan&&!W.chans.length)addChan();renderSetup();return}
+  if(x=e.target.closest('[data-su-rmch]')){W.chans.splice(+x.dataset.suRmch,1);W.active=Math.max(0,Math.min(W.active,W.chans.length-1));renderSetup();return}
+  if(x=e.target.closest('[data-su-color]')){var c=W.chans[+x.dataset.suColor];c.color=PAL[(PAL.indexOf(c.color)+1)%PAL.length];x.style.background=c.color;return}
+  if(x=e.target.closest('[data-su-cand]')){
+    if(!W.chans.length){addChan();renderSetup()}
+    var k=x.dataset.suCand,v=x.dataset.v,ch=W.chans[W.active],vals=split(ch[k]);
+    if(vals.indexOf(v)<0){vals.push(v);ch[k]=vals.join(', ');var inp=document.querySelector('[data-su-k="'+k+'"][data-su-i="'+W.active+'"]');if(inp)inp.value=ch[k];schedulePreview()}
+    return}
+  if(x=e.target.closest('[data-su-plang]')){W.plang=x.dataset.suPlang;renderSetup();return}
+  if(x=e.target.closest('[data-su-reset]')){var col=COLMAP[x.dataset.suReset];W.prompts[col.id]={prompt:clone(col.defaultPrompt),promptIfNotAssignee:clone(col.defaultPromptIfNotAssignee)};renderSetup();return}
+  if(x=e.target.closest('[data-su-refresh]')){W.refresh=+x.dataset.suRefresh;renderSetup();return}
+  if(x=e.target.closest('[data-su-ch]'))setActiveChan(+x.dataset.suCh);
+});
+function setActiveChan(i){if(W.active===i)return;W.active=i;[].forEach.call(document.querySelectorAll('[data-su-ch]'),function(el){el.classList.toggle('on',+el.dataset.suCh===i)})}
+var boardT,userT;
+document.addEventListener('input',function(e){
+  if(!W||!e.target.closest('#setup'))return;
+  var el=e.target;
+  if(el.id==='suBoardQ'){W.boardQ=el.value;clearTimeout(boardT);boardT=setTimeout(function(){loadBoards(W.boardQ)},300);return}
+  if(el.id==='suPrefix'){W.prefix=el.value;fillPrefixHint();return}
+  if(el.id==='suUserQ'){W.userQ=el.value;clearTimeout(userT);var q=el.value.trim();if(q.length<2){W.users=[];fillUsers();return}
+    userT=setTimeout(function(){api('users?q='+encodeURIComponent(q)).then(function(u){if(!W||W.userQ.trim()!==q)return;u.forEach(function(p){W.known[p.id]=p});W.users=u;fillUsers()}).catch(fail)},300);return}
+  if(el.dataset.suK){var c=W.chans[+el.dataset.suI];if(c){c[el.dataset.suK]=el.value;setActiveChan(+el.dataset.suI);schedulePreview()}return}
+  if(el.dataset.suP)setPrompt(el.dataset.suP,el.dataset.suPk,el.value);
+});
+document.addEventListener('focusin',function(e){var c=W&&e.target.closest&&e.target.closest('[data-su-ch]');if(c)setActiveChan(+c.dataset.suCh)});
+$('settings').addEventListener('click',function(){openSetup(false)});
+
+skeleton();renderChrome();
+if(SETUP.required)openSetup(true);else playShow(load(false));
 })();
 </script>
 </body>

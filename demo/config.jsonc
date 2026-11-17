@@ -1,0 +1,17 @@
+// Config for demo/demo.py: a made-up team on the built-in fake Jira.
+{
+  "board": { "id": 1, "sprintNamePrefix": "TEAM" },
+  "ui": { "defaultLanguage": "en" },
+  "reviewerRoles": [
+    { "id": "approver", "field": "customfield_10001", "label": "Approver" },
+    { "id": "mergeApprover", "field": "customfield_10002", "label": "Merge Approver" }
+  ],
+  "channels": [
+    { "id": "payments", "name": "Payments", "color": "#7FA0FF", "epics": ["DEMO-1"], "labels": ["pay-*"] },
+    { "id": "mobile", "name": "Mobile", "color": "#4FD1BE", "epics": ["DEMO-2"], "labels": ["mobile*"] }
+  ],
+  "burndown": {
+    "timezone": "local",
+    "estimateComment": { "enabled": true }
+  }
+}

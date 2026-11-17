@@ -1,6 +1,8 @@
 // Sprint Focus Board configuration.
-// Copy this file to config.jsonc (git ignores it) and change what you need. Every key is optional
-// except board.id; a missing key falls back to the default shown here or in the comment.
+// Copy this file to config.jsonc (git ignores it) and change what you need. Every key is optional;
+// a missing key falls back to the default shown here or in the comment. Without board.id the board
+// starts in its setup wizard, which saves board, team, channels, prompts and ui.refreshSeconds to
+// settings.json; those values then win over this file.
 // The format is JSON with // and /* */ comments. All values below are made-up examples.
 {
   // Jira Cloud site. The environment variables JIRA_BASE_URL and JIRA_EMAIL win over these.
@@ -12,7 +14,8 @@
 
   "board": {
     // The number in the board URL: https://example.atlassian.net/jira/software/projects/DEMO/boards/12
-    "id": 12,
+    // Leave it out to pick the board and sprint in the setup wizard instead.
+    // "id": 12,
     // Use the first active sprint whose name starts with this text. "" takes the first active sprint.
     // The prefix is also left out of the sprint name shown in the header.
     "sprintNamePrefix": "TEAM",
@@ -102,13 +105,24 @@
   //   epics       issue keys; matches the ticket's parent or grandparent (the epic of a sub-task's story)
   //   labels      glob patterns (* and ?), case-insensitive, on the ticket's and its parent's labels
   //   components  glob patterns on the ticket's and its parent's components
-  //   summary     a regular expression (case-insensitive) on the ticket, parent and epic summaries
+  //   keywords    whole words or phrases (case-insensitive) in the ticket, parent and epic summaries
+  //   summary     a regular expression (case-insensitive) on the same summaries, for what keywords cannot say
   "channels": [
     { "id": "mobile", "name": "Mobile", "color": "#7FA0FF",
-      "epics": ["DEMO-100"], "labels": ["mobile*", "*-ios"], "components": ["Mobile*"], "summary": "\\b(iOS|Android)\\b" },
+      "epics": ["DEMO-100"], "labels": ["mobile*", "*-ios"], "components": ["Mobile*"], "keywords": ["iOS", "Android"] },
     { "id": "payments", "name": "Payments", "color": "#4FD1BE",
       "labels": ["pay-*"], "summary": "\\bpayments?\\b" }
   ],
+
+  // People in the person picker: Jira accountIds, optionally with name and avatar for people who are
+  // not on the sprint. Empty (the default) means everyone in the sprint. The wizard fills this in.
+  "team": [],
+
+  // Prompt overrides per column id, as the wizard saves them. A column's own "prompt" stays the
+  // default that "Reset to default" goes back to.
+  "prompts": {
+    "toreview": { "prompt": "/review {key}\n\nReview {key}: {summary}. Read only." }
+  },
 
   // Priority name -> level 1..5 (1 is the most urgent). Names that start with P1..P5 are read directly.
   // These entries are added to the defaults: highest/blocker/critical 1, high/major 2, medium 3,

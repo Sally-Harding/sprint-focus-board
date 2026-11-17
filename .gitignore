@@ -1,6 +1,8 @@
 # Local settings and secrets
-config.json
-config.jsonc
+/config.json
+/config.jsonc
+/settings.json
+/settings.json.tmp
 *.local.json
 *.local.jsonc
 .env
