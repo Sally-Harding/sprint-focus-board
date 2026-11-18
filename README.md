@@ -152,7 +152,7 @@ The demo runs a fake Jira inside the same process, with a made-up team and a spr
    JIRA_API_TOKEN=your-token
    ```
 
-   Real environment variables win over `.env`; `--env-file PATH` or `BOARD_ENV_FILE` points at another file. `JIRA_URL` and `JIRA_USERNAME` work as aliases.
+   Real environment variables win over `.env`; `--env-file PATH` or `BOARD_ENV_FILE` points at another file. `JIRA_URL` and `JIRA_USERNAME` work as aliases. Already using the Atlassian MCP server? Set `jira.mcpConfig` in `config.jsonc` to your `.mcp.json` instead, and the board reads the credentials from there.
 3. **Optional: reviewer roles and language.** If your tickets have user-picker fields for the people who review after the assignee, copy `config.example.jsonc` to `config.jsonc` (git ignores it) and list them under `reviewerRoles`; `python board.py --list-fields` shows their ids. Set `ui.defaultLanguage` there too.
 4. **Run and finish the setup in the browser.**
 
@@ -197,6 +197,8 @@ Settings come from three layers, each overriding the one before: the built-in de
 | `columns` | The columns: statuses, issue-type filters, rule, colour, description and prompt templates. |
 | `channels` | Optional chips: `epics`, `labels`, `components` (glob patterns), `keywords` (whole words in titles) and a `summary` regex per channel. Tickets in no channel are "Other". Leave it empty and the chips disappear; no column filters by channel. |
 | `prompts` | Per-column prompt overrides, `{ "<column id>": { "prompt": ..., "promptIfNotAssignee": ... } }`. The wizard writes them; the column's own `prompt` stays the default. |
+| `promptVars` | Extra placeholders that depend on the ticket, such as `{review}` = `/review-web` for `WEB-*` keys and `/review-api` otherwise. The first matching rule (key patterns, issue types) wins. |
+| `jira.mcpConfig` | Path to an MCP config (such as `.mcp.json`) whose Atlassian entry holds `JIRA_URL`, `JIRA_USERNAME` and `JIRA_API_TOKEN`; the board reads them from there so the token is not copied. `JIRA_MCP_CONFIG` does the same. |
 | `priorities` | Priority name → level 1..5, for the icons and the sort order. `P1`..`P5` names are read directly. |
 | `burndown` | Time zone, daily target, colour thresholds, weekend days, excluded types, done statuses and the optional estimate-comment comparison. |
 
@@ -216,7 +218,7 @@ With no reviewer roles configured, every role counts as empty: the review column
 
 ### Prompts
 
-Each column has a prompt template, as one string or per language (`{ "en": "...", "tr": "..." }`). `promptIfNotAssignee` is used when the picked person is not the assignee. Placeholders: `{key}`, `{summary}`, `{url}`, `{type}`, `{status}`, `{parentKey}`, `{parentSummary}`, `{assignee}`.
+Each column has a prompt template, as one string or per language (`{ "en": "...", "tr": "..." }`). `promptIfNotAssignee` is used when the picked person is not the assignee. Placeholders: `{key}`, `{summary}`, `{url}`, `{type}`, `{status}`, `{parentKey}`, `{parentSummary}`, `{assignee}`, plus any `promptVars` you define, so one template can start with the right command for each repository (for example `{review} {key}`).
 
 ### Time zones
 

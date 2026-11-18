@@ -69,7 +69,12 @@ Ask in one message:
 1. **Jira site URL** — `https://<site>.atlassian.net` (Jira Cloud). Required.
 2. **Atlassian account email** for that site. Required.
 
-Then create `.env` from `.env.example` with those two values and `JIRA_API_TOKEN=` left empty, and
+If the user already has the Atlassian MCP server configured (an `.mcp.json` whose server `env` has
+`JIRA_URL`, `JIRA_USERNAME` and `JIRA_API_TOKEN`), offer that instead: set `jira.mcpConfig` in
+`config.jsonc` to that file's path, skip `.env`, and go straight to `--list-boards`. Never print the
+file's contents.
+
+Otherwise create `.env` from `.env.example` with those two values and `JIRA_API_TOKEN=` left empty, and
 tell the user:
 
 > Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens

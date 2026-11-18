@@ -478,10 +478,12 @@ function chain(r,col){
   return '<div class="chain" role="img" aria-label="'+h(label)+'">'+o+'</div>';
 }
 
-/* Prompt templates come from the config; {key}, {summary}, {url}, {type}, {status}, {parentKey}, {parentSummary} and {assignee} are filled in. */
+/* Prompt templates come from the config; {key}, {summary}, {url}, {type}, {status}, {parentKey}, {parentSummary} and {assignee}
+   are filled in, plus the config's promptVars, which the server resolves per ticket. */
 function fill(tpl,r){
   var v={key:r.key,summary:r.summary,url:data.base+'/browse/'+r.key,type:r.type,status:r.status,
     parentKey:r.parent?r.parent.key:'',parentSummary:r.parent?r.parent.summary:'',assignee:r.assignee?r.assignee.name:''};
+  Object.keys(r.vars||{}).forEach(function(k){if(!Object.prototype.hasOwnProperty.call(v,k))v[k]=txt(r.vars[k])});
   return tpl.replace(/\{(\w+)\}/g,function(m,k){return Object.prototype.hasOwnProperty.call(v,k)?v[k]:m});
 }
 function prompt(r,col){
@@ -931,7 +933,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&show)show.s
 /* Setup wizard: the board's sprint, the team, channels, column prompts and the refresh rate, saved by the
    server to its settings file. It opens by itself until a board is set; the Settings button reopens it. */
 var SETUP=CFG.setup||{},W=null,PAL=['#7FA0FF','#4FD1BE','#F7A35C','#C38BFF','#FF7AA2','#6FCF97'];
-var PLACEHOLDERS='{key} {summary} {url} {type} {status} {parentKey} {parentSummary} {assignee}';
+var PLACEHOLDERS=['key','summary','url','type','status','parentKey','parentSummary','assignee'].concat(CFG.promptVars||[]).map(function(k){return '{'+k+'}'}).join(' ');
 var ST={
   en:{settings:'Settings',settingsTip:'Change the sprint, team, channels, prompts and refresh rate',
     title:'Set up the board',intro:'A few choices for this board. You can change them any time with Settings.',

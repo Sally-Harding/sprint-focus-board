@@ -9,6 +9,10 @@
   // The API token is never read from this file: put it in JIRA_API_TOKEN or in .env.
   "jira": {
     "baseUrl": "https://example.atlassian.net",
+    // Optional: read JIRA_URL / JIRA_USERNAME / JIRA_API_TOKEN from the Atlassian entry of an MCP config
+    // file you already have, so the token lives in one place. The environment and .env still win.
+    // JIRA_MCP_CONFIG does the same from the environment.
+    // "mcpConfig": "~/.mcp.json",
     "email": "you@example.com"
   },
 
@@ -121,7 +125,14 @@
   // Prompt overrides per column id, as the wizard saves them. A column's own "prompt" stays the
   // default that "Reset to default" goes back to.
   "prompts": {
-    "toreview": { "prompt": "/review {key}\n\nReview {key}: {summary}. Read only." }
+    "toreview": { "prompt": "{review} {key}\n\nReview {key}: {summary}. Read only." }
+  },
+
+  // Extra prompt placeholders whose value depends on the ticket. For each name, the first rule whose
+  // "keys" (glob patterns on the issue key) and "types" (issue types) match gives the value; a rule
+  // with neither is the fallback. Values can be per language like prompts.
+  "promptVars": {
+    "review": [ { "keys": ["WEB-*"], "value": "/review-web" }, { "value": "/review-api" } ]
   },
 
   // Priority name -> level 1..5 (1 is the most urgent). Names that start with P1..P5 are read directly.

@@ -128,6 +128,31 @@ class BoardTest(unittest.TestCase):
                          {"todo": 0, "reopened": 0, "progress": 0, "blocked": 0, "toreview": 1, "inreview": 1, "merge": 2})
 
 
+class PromptVarsAndCredentialsTest(unittest.TestCase):
+    def test_prompt_vars_pick_the_first_matching_rule(self):
+        configured(promptVars={"finish": [{"keys": ["WEB-*"], "value": "web-finish"}, {"types": ["Bug"], "value": {"en": "bug-fix", "tr": "hata"}},
+                                          {"value": "api-finish"}]})
+        self.assertEqual(board.prompt_vars_for("WEB-12", "Bug"), {"finish": "web-finish"})
+        self.assertEqual(board.prompt_vars_for("API-3", "Bug"), {"finish": {"en": "bug-fix", "tr": "hata"}})
+        self.assertEqual(board.prompt_vars_for("API-3", "Sub-task"), {"finish": "api-finish"})
+        with self.assertRaises(board.ConfigError):
+            board.compile_prompt_vars({"key": [{"value": "x"}]})
+
+    def test_mcp_config_fills_missing_credentials_only(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            json.dump({"mcpServers": {"other": {"env": {}}, "atlassian": {"env": {
+                "JIRA_URL": "https://x.example", "JIRA_USERNAME": "a@example.com", "JIRA_API_TOKEN": "t1"}}}}, fh)
+        try:
+            with mock.patch.dict(os.environ, {"JIRA_EMAIL": "kept@example.com"}, clear=True):
+                board.load_mcp_credentials(fh.name)
+                self.assertEqual((os.environ["JIRA_BASE_URL"], os.environ["JIRA_EMAIL"], os.environ["JIRA_API_TOKEN"]),
+                                 ("https://x.example", "kept@example.com", "t1"))
+            with self.assertRaises(board.ConfigError):
+                board.load_mcp_credentials(fh.name + ".missing")
+        finally:
+            os.unlink(fh.name)
+
+
 class SetupTest(unittest.TestCase):
     def test_sprint_prefix_suggestion(self):
         self.assertEqual(board.suggest_prefix("TEAM Sprint 42"), "TEAM")

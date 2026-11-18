@@ -358,6 +358,7 @@ BASE_CFG = copy.deepcopy(DEFAULTS)  # the config file without the wizard's setti
 SETUP_REQUIRED = False
 SETUP_TOKEN = secrets.token_urlsafe(24)
 TEAM = []
+PROMPT_VARS = []
 BASE = ""
 AUTH = ""
 ROLES = []
@@ -448,9 +449,63 @@ def compile_channels(items, warnings=None):
     return channels
 
 
+PLACEHOLDERS = ("key", "summary", "url", "type", "status", "parentKey", "parentSummary", "assignee")
+
+
+def compile_prompt_vars(spec):
+    """Extra prompt placeholders whose value depends on the ticket: {"name": [{"keys": [...], "types": [...], "value": ...}]}.
+    The first rule whose key patterns and issue types match gives the value; a rule without either is the fallback."""
+    if not isinstance(spec, dict):
+        raise ConfigError("promptVars must be an object of name: [rules]")
+    out = []
+    for name, rules in spec.items():
+        where = f"promptVars.{name}"
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name) or name in PLACEHOLDERS:
+            raise ConfigError(f"{where}: use letters, digits and _, and not a built-in placeholder ({', '.join(PLACEHOLDERS)})")
+        compiled = []
+        for i, r in enumerate(rules if isinstance(rules, list) else [rules]):
+            if not isinstance(r, dict) or "value" not in r:
+                raise ConfigError(f"{where}[{i}] needs a value")
+            compiled.append(([k.lower() for k in str_list(r.get("keys"), f"{where}[{i}].keys")],
+                             {norm_type(t) for t in str_list(r.get("types"), f"{where}[{i}].types")},
+                             localized(r["value"], f"{where}[{i}].value") or ""))
+        out.append((name, compiled))
+    return out
+
+
+def prompt_vars_for(key, type_name):
+    out, t = {}, norm_type(type_name)
+    for name, rules in PROMPT_VARS:
+        for keys, types, value in rules:
+            if (not keys or glob_any(key, keys)) and (not types or t in types):
+                out[name] = value
+                break
+    return out
+
+
+def load_mcp_credentials(path):
+    """Fill JIRA_* from the Atlassian entry of an MCP config file (such as .mcp.json), without overriding what is set,
+    so the token keeps living in one place."""
+    path = os.path.expanduser(os.path.expandvars(path))
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            data = json.load(fh)
+    except OSError as ex:
+        raise ConfigError(f"jira.mcpConfig: cannot read {path} ({ex.strerror or ex})")
+    except json.JSONDecodeError as ex:
+        raise ConfigError(f"jira.mcpConfig: {path} is not valid JSON (line {ex.lineno})")
+    servers = (data.get("mcpServers") or {}).values() if isinstance(data, dict) else []
+    env = next((s["env"] for s in servers if isinstance(s, dict) and isinstance(s.get("env"), dict) and s["env"].get("JIRA_API_TOKEN")), None)
+    if env is None:
+        raise ConfigError(f"jira.mcpConfig: no server in {path} has JIRA_API_TOKEN in its env")
+    for ours, theirs in (("JIRA_BASE_URL", "JIRA_URL"), ("JIRA_EMAIL", "JIRA_USERNAME"), ("JIRA_API_TOKEN", "JIRA_API_TOKEN")):
+        if env.get(theirs):
+            os.environ.setdefault(ours, str(env[theirs]))
+
+
 def configure(cfg):
     """Validate the merged config and set the module state. Returns a list of warnings."""
-    global CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK, FIELDS, TEAM, SETUP_REQUIRED
+    global CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK, FIELDS, TEAM, SETUP_REQUIRED, PROMPT_VARS
     warnings = []
     board = cfg["board"]
     # Without a board the server still starts; the page then runs the setup wizard.
@@ -558,6 +613,7 @@ def configure(cfg):
 
     for cid in set(prompts) - {c["id"] for c in columns}:
         warnings.append(f"prompts.{cid} is for a column that does not exist; it is ignored.")
+    prompt_vars = compile_prompt_vars(cfg.get("promptVars") or {})
     channels = compile_channels(cfg.get("channels") or [], warnings)
 
     priorities = {}
@@ -602,8 +658,8 @@ def configure(cfg):
         raise ConfigError('ui.defaultLanguage must be "en" or "tr"')
 
     CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK = cfg, roles, columns, channels, priorities, suffixes, burn, clock
-    TEAM, SETUP_REQUIRED = team, setup_required
-    FIELDS = ",".join(["summary", "status", "priority", "issuetype", "parent", "assignee", "labels", "components"] + [r["field"] for r in roles])
+    TEAM, SETUP_REQUIRED, PROMPT_VARS = team, setup_required, prompt_vars
+    FIELDS =",".join(["summary", "status", "priority", "issuetype", "parent", "assignee", "labels", "components"] + [r["field"] for r in roles])
     return warnings
 
 
@@ -615,7 +671,8 @@ def connect(cfg):
     token = os.environ.get("JIRA_API_TOKEN") or ""
     missing = [n for n, v in (("JIRA_BASE_URL", base), ("JIRA_EMAIL", email), ("JIRA_API_TOKEN", token)) if not v]
     if missing:
-        raise ConfigError("Missing " + ", ".join(missing) + ". Set them in the environment or in a .env file next to board.py (see .env.example).")
+        raise ConfigError("Missing " + ", ".join(missing) + ". Set them in the environment or in a .env file next to board.py (see .env.example), "
+                          "or point jira.mcpConfig at an MCP config file that has them.")
     base = base.strip().rstrip("/")
     # Plain http is accepted only on loopback, for a local test double such as demo/demo.py.
     if not re.match(r"^(https://[^/\s]+|http://(localhost|127\.0\.0\.1)(:\d+)?)$", base):
@@ -829,6 +886,7 @@ def load_board():
             "parent": {"key": p["key"], "summary": parents.get(p["key"], {}).get("summary") or (p.get("fields") or {}).get("summary", "")} if p else None,
             "rank": rank,
             "cols": columns_for(status, f["issuetype"]["name"]),
+            "vars": prompt_vars_for(i["key"], f["issuetype"]["name"]),
         })
     return {"me": me, "base": BASE, "sprint": sprint_info(sprint), "fetchedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "rows": rows}
 
@@ -1007,6 +1065,7 @@ def page_config():
         "burndown": {"enabled": BURN["enabled"], "target": BURN["target"], "low": BURN["low"], "mid": BURN["mid"],
                      "weekendDays": BURN["weekendDays"], "stages": [{"id": s["id"], "label": s["label"]} for s in BURN["stages"]]},
         "team": TEAM,
+        "promptVars": [name for name, _ in PROMPT_VARS],
         # What the setup wizard edits, as it is today; the token guards its save requests.
         "setup": {"required": SETUP_REQUIRED, "token": SETUP_TOKEN,
                   "board": {"id": CFG["board"].get("id"), "sprintNamePrefix": CFG["board"].get("sprintNamePrefix") or ""},
@@ -1365,6 +1424,9 @@ def main(argv=None):
         if env_file and not os.path.isfile(env_file):
             raise ConfigError(f"Env file not found: {env_file}")
         load_env_file(env_file or os.path.join(HERE, ".env"))
+        mcp = os.environ.get("JIRA_MCP_CONFIG") or cfg["jira"].get("mcpConfig")
+        if mcp:
+            load_mcp_credentials(mcp)
         if args.list_boards is not None or args.list_fields:
             connect(cfg)
             try:
