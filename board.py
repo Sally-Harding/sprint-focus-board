@@ -1163,6 +1163,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
+        # Read the body before anything else, also for a request that is refused: a socket closed with unread
+        # data is reset on Windows, and the client then sees an aborted connection instead of the answer.
+        try:
+            size = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            size = -1
+        if not 0 <= size <= 1_000_000:
+            self.close_connection = True
+            self.send(413 if size > 0 else 400, b'{"error":"Content-Length is missing or too large"}', "application/json; charset=utf-8")
+            return
+        raw = self.rfile.read(size) if size else b""
         # Writes come only from this server's own page: localhost Host, same-origin Origin when sent,
         # JSON body and the per-process token from the page (another site cannot read or send it).
         origin = (self.headers.get("Origin") or "").lower()
@@ -1174,10 +1185,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(403, b'{"error":"Forbidden"}', "application/json; charset=utf-8")
             return
         try:
-            size = int(self.headers.get("Content-Length") or 0)
-            if size > 1_000_000:
-                raise ValueError("request too large")
-            body = json.loads(self.rfile.read(size) or b"{}")
+            body = json.loads(raw or b"{}")
             if not isinstance(body, dict):
                 raise ValueError("expected a JSON object")
         except ValueError as ex:
