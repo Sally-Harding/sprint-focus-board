@@ -371,10 +371,8 @@ CLOCK = make_clock("UTC")
 FIELDS = ""
 PARENT_FIELDS = "summary,parent,labels,components"
 
-_cache = {"at": 0.0, "body": b""}
 _me = {}
 _icons = {}
-_burn = {}
 _issue_cache = {}
 _lock = threading.Lock()
 _jira_slots = threading.BoundedSemaphore(JIRA_CONNECTIONS)
@@ -891,20 +889,53 @@ def load_board():
     return {"me": me, "base": BASE, "sprint": sprint_info(sprint), "fetchedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "rows": rows}
 
 
+# Board and burndown answers take seconds (several Jira calls; the burndown reads every changed ticket's
+# changelog). They are worked out in the background, so no request holds its connection open that long:
+# without a fresh result the server answers 202 at once, with the last result as "stale" when it has one,
+# and the page asks again shortly. A browser that reloads or closes the page in the meantime then has
+# nothing pending.
+_results = {}  # key -> (time, HTTP code, body)
+_jobs = {}     # key -> the thread working it out
+_gen = 0       # bumped when the settings change, so a job started before that does not store its result
+
+
+def background(key, compute, force=False):
+    with _lock:
+        hit = _results.get(key)
+        if hit and not force and time.time() - hit[0] < CACHE_SECONDS:
+            return hit[1], hit[2]
+        if hit and force:
+            _results[key] = (0.0, hit[1], hit[2])  # keep it as stale, but no longer fresh
+        if key not in _jobs:
+            job = threading.Thread(target=_run_job, args=(key, compute, _gen), daemon=True)
+            _jobs[key] = job
+            job.start()
+    stale = hit[2] if hit and hit[1] == 200 else b"null"
+    return 202, b'{"pending":true,"stale":' + stale + b"}"
+
+
+def _run_job(key, compute, gen):
+    try:
+        code, body = 200, json.dumps(compute()).encode("utf-8")
+    except Exception as ex:
+        print(f"{key.split('|')[0]}: {describe(ex)}", file=sys.stderr)
+        code, body = 502, json.dumps({"error": describe(ex)}).encode("utf-8")
+    with _lock:
+        if gen == _gen:
+            _results[key] = (time.time(), code, body)
+            _jobs.pop(key, None)
+
+
+def forget_results():
+    global _gen
+    with _lock:
+        _results.clear()
+        _jobs.clear()
+        _gen += 1
+
+
 def board_json(force=False):
-    with single_flight("board"):
-        with _lock:
-            fresh = not force and time.time() - _cache["at"] <= CACHE_SECONDS and _cache["body"]
-            if fresh:
-                return 200, _cache["body"]
-        try:
-            body = json.dumps(load_board()).encode("utf-8")
-        except Exception as ex:
-            print("Board:", describe(ex), file=sys.stderr)
-            return 502, json.dumps({"error": describe(ex)}).encode("utf-8")
-        with _lock:
-            _cache.update(at=time.time(), body=body)
-        return 200, body
+    return background("board", load_board, force)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1030,22 +1061,11 @@ def burn_events(day_from, day_to, sprint):
 
 
 def burn_json(day, whole_sprint=False, force=False):
-    key = ("sprint|" if whole_sprint else "") + day
-    with single_flight("burn|" + key):
-        with _lock:
-            hit = _burn.get(key)
-        if hit and not force and time.time() - hit[0] < CACHE_SECONDS:
-            return 200, hit[1]
-        try:
-            sprint = active_sprint()
-            start = local_day(sprint["startDate"])[0] if whole_sprint else day
-            body = json.dumps(dict(burn_events(start, day, sprint), day=day, start=start, target=BURN["target"])).encode("utf-8")
-        except Exception as ex:
-            print("Burndown:", describe(ex), file=sys.stderr)
-            return 502, json.dumps({"error": describe(ex)}).encode("utf-8")
-        with _lock:
-            _burn[key] = (time.time(), body)
-        return 200, body
+    def compute():
+        sprint = active_sprint()
+        start = local_day(sprint["startDate"])[0] if whole_sprint else day
+        return dict(burn_events(start, day, sprint), day=day, start=start, target=BURN["target"])
+    return background(("burndown|sprint|" if whole_sprint else "burndown|") + day, compute, force)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -1096,12 +1116,18 @@ class Server(ThreadingHTTPServer):
 
 class Handler(BaseHTTPRequestHandler):
     def send(self, code, body, ctype):
-        self.send_response(code)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "max-age=86400" if self.path.startswith("/icon") and code == 200 else "no-store")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "max-age=86400" if self.path.startswith("/icon") and code == 200 else "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+        except ConnectionError:
+            # The browser gave up on this request (the page was reloaded, closed or put to sleep) before the answer
+            # was ready; there is nobody left to answer, so note it in one line instead of a traceback.
+            print(f"{self.path.split('?')[0]}: the browser closed the connection before the answer was sent.", file=sys.stderr)
+            self.close_connection = True
 
     def do_GET(self):
         # Only answer to localhost names, so a web page cannot reach this server through DNS rebinding.
@@ -1297,11 +1323,9 @@ def setup_save(body):
     })
     warnings = configure(deep_merge(BASE_CFG, settings))
     write_settings(settings_path(), settings)
-    with _lock:
-        _cache.update(at=0.0, body=b"")
-        _burn.clear()
+    forget_results()
     if BURN["enabled"]:
-        threading.Thread(target=burn_json, args=(today(), True), daemon=True).start()
+        burn_json(today(), True)
     return {"ok": True, "warnings": warnings, "path": settings_path()}
 
 
@@ -1457,8 +1481,8 @@ def main(argv=None):
     if SETUP_REQUIRED:
         print(f"No board is set yet: open {url} and finish the setup there. It is saved to {settings_path()}.", flush=True)
     elif BURN["enabled"]:
-        # The sprint-wide burndown reads every changelog once; warm that cache before the page asks for it.
-        threading.Thread(target=burn_json, args=(today(), True), daemon=True).start()
+        # The sprint-wide burndown reads every changelog once; start on it before the page asks.
+        burn_json(today(), True)
     if args.open:
         webbrowser.open(url)
     try:

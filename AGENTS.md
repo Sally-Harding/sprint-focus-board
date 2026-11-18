@@ -58,7 +58,9 @@ cd <folder>
 ## Step 3 — Prove the machine can run it (demo, no Jira)
 
 Start `python demo/demo.py --port 8765` in the background, then request
-`http://localhost:8765/api/board`: it must return HTTP 200 with a JSON `rows` list. Stop the demo.
+`http://localhost:8765/api/board`: it must return HTTP 200 with a JSON `rows` list. (`/api/board` and
+`/api/burn` answer `202 {"pending": true}` while they work the answer out in the background; ask
+again every second or two until the status is not 202.) Stop the demo.
 If the port is taken (`Cannot listen on 127.0.0.1:8765`), use another and remember it. This rules
 out Python, firewall and browser problems before any Jira question.
 
@@ -165,10 +167,10 @@ about, then restart the board: config file changes need a restart, wizard change
 ## Step 8 — Verify
 
 1. Startup prints no `Config error:` and no `No board is set yet`.
-2. `http://localhost:<port>/api/board`: HTTP 200, `sprint.name` is the expected sprint, `rows` is not
-   empty.
-3. If the burndown is on, `http://localhost:<port>/api/burn?scope=sprint`: HTTP 200 and no `error` key.
-   The first call may take a few seconds on a large sprint.
+2. `http://localhost:<port>/api/board`: HTTP 200 (after any `202` answers), `sprint.name` is the
+   expected sprint, `rows` is not empty.
+3. If the burndown is on, `http://localhost:<port>/api/burn?scope=sprint`: HTTP 200 (after any `202`
+   answers) and no `error` key. On a large sprint the first answer can take a few seconds to be ready.
 4. In the browser (yours or the user's): the header shows the user's name and the sprint, cards are in
    the expected columns, the person picker shows the team, the channel chips match the wizard, and the
    Burndown Contribution button shows a number rather than `–`.

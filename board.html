@@ -676,14 +676,20 @@ function renderChan(){
 var burn=null,sprintBurn=null,STAGE_NAME={},TARGET=+BURNCFG.target||0;
 (BURNCFG.stages||[]).forEach(function(s){STAGE_NAME[s.id]=s.label});
 function hrs(x){return (Math.round(x*100)/100)+'h'}
-function loadBurn(force){
-  return fetch('/api/burn'+(force?'?force=1':''),{cache:'no-store'}).then(function(r){return r.json()})
-    .then(function(j){burn=j}).catch(function(e){burn={error:e.message}}).then(renderBurn);
+/* The server works the burndown out in the background and answers 202 until it is ready, with the last
+   result as "stale" when it has one. Ask again every 2 s for up to 3 minutes; later asks never force. */
+function getBurn(path,force,set,tries){
+  return fetch(path+(force?(path.indexOf('?')<0?'?':'&')+'force=1':''),{cache:'no-store'})
+    .then(function(r){return r.json().then(function(j){return {status:r.status,j:j}})})
+    .then(function(x){
+      if(x.status!==202){set(x.j);return}
+      if(x.j.stale)set(x.j.stale);
+      if((tries||0)<90)setTimeout(function(){getBurn(path,false,set,(tries||0)+1)},2000);else set({error:'timed out'});
+    })
+    .catch(function(e){set({error:e.message})}).then(renderBurn);
 }
-function loadSprintBurn(force){
-  return fetch('/api/burn?scope=sprint'+(force?'&force=1':''),{cache:'no-store'}).then(function(r){return r.json()})
-    .then(function(j){sprintBurn=j}).catch(function(e){sprintBurn={error:e.message}}).then(renderBurn);
-}
+function loadBurn(force){return getBurn('/api/burn',force,function(j){burn=j})}
+function loadSprintBurn(force){return getBurn('/api/burn?scope=sprint',force,function(j){sprintBurn=j})}
 function level(x){return x<BURNCFG.low?'low':x<BURNCFG.mid?'mid':'ok'}
 function sprintHtml(){
   var t=T[lang];
@@ -727,15 +733,28 @@ function renderAll(fromLoad){renderChrome();if(!data)return;renderPeople();rende
 
 function skeleton(){var o='';COLS.forEach(function(c){o+='<section class="bay" style="--sc:'+h(c.color)+'"><div class="bh"><div class="bh-r"><h2>'+h(c.name)+'</h2></div><div class="rule">&nbsp;</div></div><div class="slot"><div class="skel"></div><div class="skel"></div></div></section>'});$('board').innerHTML=o}
 
+/* The server answers 202 while it fetches the board in the background; ask again every second. A first
+   load with nothing on screen shows the server's stale copy meanwhile. Later asks never force. */
+function fetchBoard(force,tries){
+  return fetch('/api/board'+(force?'?force=1':''),{cache:'no-store'}).then(function(r){return r.json().then(function(j){
+    if(r.status===202){
+      if(j.stale&&!data){applyBoard(j.stale);renderAll()}
+      if(tries>=120)throw new Error('timed out');
+      return wait(1000).then(function(){return fetchBoard(false,tries+1)});
+    }
+    if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+    return j;
+  })});
+}
+function applyBoard(j){
+  data=j;lastFetch=Date.now();$('err').hidden=true;
+  if(!sel){var u=new URLSearchParams(location.search).get('u')||store.get('sfb.user',null);sel=(u&&personById(u))?u:data.me.id}
+  var live={};data.rows.forEach(function(r){live[r.key]=r.status});
+  Object.keys(hidden).forEach(function(k){if(live[k.split('|')[1]]!==hidden[k])delete hidden[k]});store.set('sfb.hidden',hidden);
+}
 function load(force){
   if(loading||SETUP.required)return Promise.resolve();loading=true;renderChrome();if(BURNCFG.enabled){loadBurn(force);loadSprintBurn(force)}
-  return fetch('/api/board'+(force?'?force=1':''),{cache:'no-store'}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j})})
-  .then(function(j){
-    data=j;lastFetch=Date.now();$('err').hidden=true;
-    if(!sel){var u=new URLSearchParams(location.search).get('u')||store.get('sfb.user',null);sel=(u&&personById(u))?u:data.me.id}
-    var live={};data.rows.forEach(function(r){live[r.key]=r.status});
-    Object.keys(hidden).forEach(function(k){if(live[k.split('|')[1]]!==hidden[k])delete hidden[k]});store.set('sfb.hidden',hidden);
-  }).catch(function(e){$('errMsg').textContent=T[lang].err+': '+e.message;$('err').hidden=false})
+  return fetchBoard(force,0).then(applyBoard).catch(function(e){$('errMsg').textContent=T[lang].err+': '+e.message;$('err').hidden=false})
   .then(function(){loading=false;renderAll(true)});
 }
 

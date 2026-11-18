@@ -128,6 +128,50 @@ class BoardTest(unittest.TestCase):
                          {"todo": 0, "reopened": 0, "progress": 0, "blocked": 0, "toreview": 1, "inreview": 1, "merge": 2})
 
 
+class BurnJobTest(unittest.TestCase):
+    def test_burn_is_worked_out_in_the_background(self):
+        import threading
+        configured()
+        gate = threading.Event()
+
+        def slow_events(start, day, sprint):
+            gate.wait(5)
+            return {"events": [], "remaining": [], "doneLeft": []}
+        with mock.patch.object(board, "active_sprint", return_value={"id": 1, "startDate": "2026-11-09T09:00:00.000Z"}), \
+                mock.patch.object(board, "burn_events", side_effect=slow_events):
+            board.forget_results()
+            code, body = board.burn_json("2026-11-17")
+            self.assertEqual((code, json.loads(body)), (202, {"pending": True, "stale": None}))
+            self.assertEqual(board.burn_json("2026-11-17")[0], 202)
+            self.assertEqual(list(board._jobs), ["burndown|2026-11-17"])
+            gate.set()
+            board._jobs["burndown|2026-11-17"].join(5)
+            code, body = board.burn_json("2026-11-17")
+            self.assertEqual(code, 200)
+            self.assertEqual(json.loads(body)["day"], "2026-11-17")
+            gate.clear()
+            code, body = board.burn_json("2026-11-17", force=True)
+            self.assertEqual(code, 202)
+            self.assertEqual(json.loads(body)["stale"]["day"], "2026-11-17")
+            # After a forced refresh the old answer is only stale, so the page keeps asking until the new one.
+            self.assertEqual(board.burn_json("2026-11-17")[0], 202)
+            gate.set()
+            board._jobs["burndown|2026-11-17"].join(5)
+            self.assertEqual(board.burn_json("2026-11-17")[0], 200)
+
+    def test_closed_connection_is_one_line_not_a_traceback(self):
+        import io
+        handler = board.Handler.__new__(board.Handler)
+        handler.path = "/api/burn?scope=sprint"
+        handler.request_version = "HTTP/1.0"
+        handler.wfile = mock.Mock(write=mock.Mock(side_effect=ConnectionAbortedError(10053, "aborted")))
+        handler._headers_buffer = []
+        err = io.StringIO()
+        with mock.patch.object(board.Handler, "log_request"), mock.patch("sys.stderr", err):
+            handler.send(200, b"{}", "application/json")
+        self.assertEqual(err.getvalue().strip(), "/api/burn: the browser closed the connection before the answer was sent.")
+
+
 class PromptVarsAndCredentialsTest(unittest.TestCase):
     def test_prompt_vars_pick_the_first_matching_rule(self):
         configured(promptVars={"finish": [{"keys": ["WEB-*"], "value": "web-finish"}, {"types": ["Bug"], "value": {"en": "bug-fix", "tr": "hata"}},

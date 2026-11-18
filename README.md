@@ -251,7 +251,8 @@ The button shows today's total against `dailyTargetHours`: red below `thresholds
   ┌──────────────────────────────────────────────────────┐
   │ board.py   Python stdlib, 127.0.0.1 only             │
   │ • config.jsonc + .env (the token stays here)         │
-  │ • board cache 20 s · one flight per key              │
+  │ • board + burndown worked out in the background,     │
+  │   answers cached 20 s (202 while working)            │
   │ • at most 8 Jira connections · retry on timeout/5xx  │
   │ • per-ticket changelog cache, keyed on `updated`     │
   └──────────────────────┬───────────────────────────────┘
@@ -263,7 +264,8 @@ The button shows today's total against `dailyTargetHours`: red below `thresholds
 - **Board**: `/rest/api/3/myself`, `/rest/agile/1.0/board/{id}/sprint?state=active`, `/rest/api/3/search/jql`. Parent stories are fetched only when channels are configured.
 - **Burndown**: per changed ticket, the changelog, the worklogs (only when the changelog has worklog entries) and, with the comparison on, the comments. The sprint burndown is warmed up in the background at startup.
 - **Rate limits**: a 429 is retried once after its `Retry-After` (up to 10 s).
-- **Local API**: `/api/board` and `/api/burn` (`?day=YYYY-MM-DD`, `?scope=sprint`) take `?force=1` to skip the cache. `/icon?u=` proxies issue-type icons on your Jira site, which need authentication.
+- **No long-held requests**: `/api/board` and `/api/burn` never keep a connection open while Jira is read. Without a fresh answer they reply `202 {"pending": true, "stale": <last answer or null>}` at once and work it out in the background; the page shows the stale answer, if any, and asks again every one or two seconds. A page that is reloaded or closed meanwhile leaves nothing half-sent.
+- **Local API**: `/api/board` and `/api/burn` (`?day=YYYY-MM-DD`, `?scope=sprint`) take `?force=1` to skip the cache. Ask again until the answer is not 202. `/icon?u=` proxies issue-type icons on your Jira site, which need authentication.
 
 ---
 
