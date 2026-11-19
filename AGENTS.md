@@ -134,8 +134,9 @@ Write `config.jsonc` with only these keys (start from `config.example.jsonc`; le
 3. Wait until the user says they saved. The page then shows the board.
 
 If the user wants you to set channels or prompts from the chat instead, write them with the wizard's
-format into `config.jsonc` (see `config.example.jsonc`) before they open the wizard. Once the wizard
-saves, `settings.json` wins over `config.jsonc` for those keys.
+format into `config.jsonc` (see `config.example.jsonc`) before they open the wizard. The wizard
+saves to `settings.json` only what the user changed from `config.jsonc`; those values win over it,
+and a prompt's **Reset** goes back to the `config.jsonc` text.
 
 ## Step 7 — Fit the workflow (ask, batch 3)
 

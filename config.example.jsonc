@@ -1,8 +1,8 @@
 // Sprint Focus Board configuration.
 // Copy this file to config.jsonc (git ignores it) and change what you need. Every key is optional;
 // a missing key falls back to the default shown here or in the comment. Without board.id the board
-// starts in its setup wizard, which saves board, team, channels, prompts and ui.refreshSeconds to
-// settings.json; those values then win over this file.
+// starts in its setup wizard. The wizard saves to settings.json only the board, team, channels, prompts
+// and ui.refreshSeconds values that differ from this file; those values then win over it.
 // The format is JSON with // and /* */ comments. All values below are made-up examples.
 {
   // Jira Cloud site. The environment variables JIRA_BASE_URL and JIRA_EMAIL win over these.

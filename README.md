@@ -182,7 +182,7 @@ Follow AGENTS.md in that repository: ask me for what it needs, and finish when t
 
 ## ⚙️ Configuration
 
-Settings come from three layers, each overriding the one before: the built-in defaults, `config.jsonc` (yours, JSON with `//` and `/* */` comments), and `settings.json` (written by the setup wizard; it holds only `board.id`, `board.sprintNamePrefix`, `team`, `channels`, `prompts` and `ui.refreshSeconds`). [`config.example.jsonc`](./config.example.jsonc) documents every option; this is the overview.
+Settings come from three layers, each overriding the one before: the built-in defaults, `config.jsonc` (yours, JSON with `//` and `/* */` comments), and `settings.json` (written by the setup wizard; it holds only the `board.id`, `board.sprintNamePrefix`, `team`, `channels`, `prompts` and `ui.refreshSeconds` values that differ from `config.jsonc`, so later edits of `config.jsonc` still apply, and a prompt's **Reset** goes back to the `config.jsonc` text). [`config.example.jsonc`](./config.example.jsonc) documents every option; this is the overview.
 
 | Key | What it controls |
 | --- | --- |

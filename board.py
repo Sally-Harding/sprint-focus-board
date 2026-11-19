@@ -414,6 +414,9 @@ def str_list(v, what):
     return v
 
 
+DEFAULT_CHANNEL_COLOR = "#7FA0FF"
+
+
 def compile_channels(items, warnings=None):
     """Validate channel definitions and compile their matchers."""
     channels, seen = [], {"other"}
@@ -436,7 +439,7 @@ def compile_channels(items, warnings=None):
         channels.append({
             "id": ch["id"],
             "name": ch.get("name") or ch["id"],
-            "color": ch.get("color") or "#7FA0FF",
+            "color": ch.get("color") or DEFAULT_CHANNEL_COLOR,
             "epics": set(str_list(ch.get("epics"), f"{where}.epics")),
             "labels": [p.lower() for p in str_list(ch.get("labels"), f"{where}.labels")],
             "components": [p.lower() for p in str_list(ch.get("components"), f"{where}.components")],
@@ -501,8 +504,21 @@ def load_mcp_credentials(path):
             os.environ.setdefault(ours, str(env[theirs]))
 
 
-def configure(cfg):
-    """Validate the merged config and set the module state. Returns a list of warnings."""
+def column_prompts(c, rule_type, over, where):
+    """A column's prompt and promptIfNotAssignee: its own (else the built-in one), then a "prompts" override."""
+    prompt = localized(c.get("prompt"), f"{where}.prompt") or PROMPTS.get(c["id"]) or PROMPTS["generic"]
+    other = localized(c.get("promptIfNotAssignee"), f"{where}.promptIfNotAssignee")
+    if other is None and rule_type == "involved" and "prompt" not in c:
+        other = PROMPTS["blockedReviewer"]
+    if not isinstance(over, dict):
+        raise ConfigError(f"prompts.{c['id']} must be an object with prompt and promptIfNotAssignee")
+    return (localized(over.get("prompt"), f"prompts.{c['id']}.prompt") or prompt,
+            localized(over.get("promptIfNotAssignee"), f"prompts.{c['id']}.promptIfNotAssignee") or other)
+
+
+def configure(cfg, base=None):
+    """Validate the merged config and set the module state. Returns a list of warnings.
+    base is the config file without the wizard's settings; its prompts are what the wizard's Reset goes back to."""
     global CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK, FIELDS, TEAM, SETUP_REQUIRED, PROMPT_VARS
     warnings = []
     board = cfg["board"]
@@ -541,7 +557,8 @@ def configure(cfg):
     if not isinstance(cfg.get("columns"), list) or not cfg["columns"]:
         raise ConfigError("columns must be a non-empty list")
     prompts = cfg.get("prompts") or {}
-    if not isinstance(prompts, dict):
+    base_prompts = (base if base is not None else cfg).get("prompts") or {}
+    if not isinstance(prompts, dict) or not isinstance(base_prompts, dict):
         raise ConfigError("prompts must be an object of column id: {prompt, promptIfNotAssignee}")
     for i, c in enumerate(cfg["columns"]):
         where = f"columns[{i}]"
@@ -580,17 +597,8 @@ def configure(cfg):
                 raise ConfigError(f"{where}.stage must be \"assignee\", a reviewerRoles id or a number")
             stage = role_index[stage] + 1
         name = c.get("name") or c["id"]
-        prompt = localized(c.get("prompt"), f"{where}.prompt") or PROMPTS.get(c["id"]) or PROMPTS["generic"]
-        other = localized(c.get("promptIfNotAssignee"), f"{where}.promptIfNotAssignee")
-        if other is None and rule["type"] == "involved" and "prompt" not in c:
-            other = PROMPTS["blockedReviewer"]
-        # The setup wizard saves its prompt edits under "prompts" and keeps the config's as the default.
-        over = prompts.get(c["id"]) or {}
-        if not isinstance(over, dict):
-            raise ConfigError(f"prompts.{c['id']} must be an object with prompt and promptIfNotAssignee")
-        default_prompt, default_other = prompt, other
-        prompt = localized(over.get("prompt"), f"prompts.{c['id']}.prompt") or prompt
-        other = localized(over.get("promptIfNotAssignee"), f"prompts.{c['id']}.promptIfNotAssignee") or other
+        prompt, other = column_prompts(c, rule["type"], prompts.get(c["id"]) or {}, where)
+        default_prompt, default_other = column_prompts(c, rule["type"], base_prompts.get(c["id"]) or {}, where)
         columns.append({
             "defaultPrompt": default_prompt,
             "defaultPromptIfNotAssignee": default_other,
@@ -1089,7 +1097,8 @@ def page_config():
         # What the setup wizard edits, as it is today; the token guards its save requests.
         "setup": {"required": SETUP_REQUIRED, "token": SETUP_TOKEN,
                   "board": {"id": CFG["board"].get("id"), "sprintNamePrefix": CFG["board"].get("sprintNamePrefix") or ""},
-                  "channels": CFG.get("channels") or []},
+                  # With the colour the header uses, so an untouched channel saves as it came from the config.
+                  "channels": [dict(spec, color=c["color"]) for spec, c in zip(CFG.get("channels") or [], CHANNELS)]},
     }
 
 
@@ -1318,18 +1327,59 @@ def setup_preview(body):
     return {"total": len(issues), "matches": {k: {"n": len(v), "keys": v[:5]} for k, v in hits.items()}}
 
 
+def channel_key(ch):
+    return (ch.get("id"), ch.get("name") or ch.get("id"), (ch.get("color") or DEFAULT_CHANNEL_COLOR).lower(),
+            sorted(str_list(ch.get("epics"), "epics")), [p.lower() for p in str_list(ch.get("labels"), "labels")],
+            [p.lower() for p in str_list(ch.get("components"), "components")],
+            [w.strip() for w in str_list(ch.get("keywords"), "keywords") if w.strip()], (ch.get("summary") or "").strip())
+
+
+def team_ids(team):
+    return [p if isinstance(p, str) else str((p or {}).get("id")) for p in team or []]
+
+
+def settings_delta(settings, base):
+    """Drop what the config file already says. A copy of a config value in settings.json would hide later edits
+    of the config file, so the file stays the source of truth for everything the wizard did not change."""
+    out = {}
+    base_board = {"id": base["board"].get("id"), "sprintNamePrefix": base["board"].get("sprintNamePrefix") or ""}
+    try:
+        base_board["id"] = int(base_board["id"])
+    except (TypeError, ValueError):
+        pass
+    board = {k: v for k, v in settings["board"].items() if v != base_board.get(k)}
+    if board:
+        out["board"] = board
+    if team_ids(settings["team"]) != team_ids(base.get("team")):
+        out["team"] = settings["team"]
+    if [channel_key(c) for c in settings["channels"]] != [channel_key(c) for c in base.get("channels") or []]:
+        out["channels"] = settings["channels"]
+    defaults = {c["id"]: {"prompt": c["defaultPrompt"], "promptIfNotAssignee": c["defaultPromptIfNotAssignee"]} for c in COLUMNS}
+    prompts = {}
+    for cid, p in settings["prompts"].items():
+        if cid in defaults and isinstance(p, dict):
+            changed = {k: v for k, v in p.items() if k in defaults[cid] and v not in (None, "") and v != defaults[cid][k]}
+            if changed:
+                prompts[cid] = changed
+    if prompts:
+        out["prompts"] = prompts
+    if settings["ui"]["refreshSeconds"] != int(base["ui"].get("refreshSeconds") or 60):
+        out["ui"] = settings["ui"]
+    return out
+
+
 def setup_save(body):
     board = body.get("board") or {}
     if not board.get("id"):
         raise ConfigError("Pick a board and its active sprint first.")
-    settings = pick_settings({
+    settings = settings_delta(pick_settings({
         "board": {"id": int(board["id"]), "sprintNamePrefix": str(board.get("sprintNamePrefix") or "")},
         "team": body.get("team") or [],
         "channels": body.get("channels") or [],
         "prompts": body.get("prompts") or {},
         "ui": {"refreshSeconds": max(15, int(body.get("refreshSeconds") or 60))},
-    })
-    warnings = configure(deep_merge(BASE_CFG, settings))
+    }), BASE_CFG)
+    warnings = configure(deep_merge(BASE_CFG, settings), BASE_CFG)
     write_settings(settings_path(), settings)
     forget_results()
     if BURN["enabled"]:
@@ -1466,7 +1516,7 @@ def main(argv=None):
             except Exception as ex:
                 print(f"Jira lookup failed: {describe(ex)}", file=sys.stderr)
                 return 1
-        warnings = configure(cfg)
+        warnings = configure(cfg, BASE_CFG)
         connect(cfg)
     except ConfigError as ex:
         print(f"Config error: {ex}", file=sys.stderr)

@@ -231,6 +231,34 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(todo["defaultPrompt"], board.PROMPTS["todo"])
         self.assertEqual(board.TEAM, [{"id": "u1", "name": "Ann", "avatar": ""}])
 
+    def test_save_keeps_only_what_differs_from_the_config(self):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "settings.json")
+        base = board.deep_merge(board.DEFAULTS, {
+            "board": {"id": 7, "sprintNamePrefix": "TEAM"}, "team": ["u1"],
+            "channels": [{"id": "web", "name": "Web", "labels": ["Web-*"], "summary": "\\bweb\\b"}],
+            "prompts": {"todo": {"prompt": {"en": "/start {key}", "tr": "/basla {key}"}}}})
+        with mock.patch.dict(os.environ, {"BOARD_SETTINGS": path}), mock.patch.object(board, "BASE_CFG", base), \
+                mock.patch.object(board, "burn_json"):
+            board.configure(base, base)
+            setup = board.page_config()["setup"]
+            todo = [c for c in board.COLUMNS if c["id"] == "todo"][0]
+            self.assertEqual(todo["defaultPrompt"], {"en": "/start {key}", "tr": "/basla {key}"})
+            # What the wizard sends when only the In Review prompt was edited.
+            chans = [dict(c, epics=c.get("epics", []), components=[], keywords=[]) for c in setup["channels"]]
+            board.setup_save({"board": setup["board"], "team": [{"id": "u1", "name": "Ann"}], "channels": chans,
+                              "prompts": {"todo": {"prompt": todo["defaultPrompt"]}, "inreview": {"prompt": "/look {key}"}},
+                              "refreshSeconds": 60})
+            with open(path, encoding="utf-8") as fh:
+                saved = json.load(fh)
+            self.assertEqual(saved, {"prompts": {"inreview": {"prompt": "/look {key}"}}})
+            self.assertEqual([c["name"] for c in board.CHANNELS], ["Web"])
+            # Turning the channels off is a change, so it is kept.
+            board.setup_save({"board": setup["board"], "team": [], "channels": [], "prompts": {}, "refreshSeconds": 60})
+            saved = board.read_settings(path)
+        self.assertEqual(saved, {"team": [], "channels": []})
+        self.assertEqual(board.CHANNELS, [])
+
     def test_post_needs_token_origin_and_json(self):
         import threading
         import urllib.error
