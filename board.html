@@ -109,7 +109,8 @@ svg{flex:none;display:block}
 .burn.low{--lv:var(--p1)}
 .burn.mid{--lv:var(--p2)}
 .burn.ok{--lv:var(--p4)}
-/* fitTop() adds c1..c7 in turn while the header does not fit; the order is the order space is given up. */
+/* fitTop() adds c1..c7 in turn while the header does not fit; the order is the order space is given up.
+   If it still does not fit, "wrap" moves the rest to a second row. */
 .top.c1 .burnl{display:none}.top.c1 .burnw{margin-left:12px}
 .top.c2 #motion span{display:none}
 .top.c3 #settings span{display:none}
@@ -117,6 +118,11 @@ svg{flex:none;display:block}
 .top.c5 .spr .left{display:none}
 .top.c6 #stamp{display:none}
 .top.c7 #hiddenBtn span{display:none}
+.top.wrap{height:auto;flex-wrap:wrap;padding:6px 18px;row-gap:0}
+.top.wrap>*{margin-top:5px;margin-bottom:5px}
+/* The spacer becomes a zero-height line break, so search and the buttons move down together, on the right. */
+.top.wrap .grow{flex:0 0 100%;height:0;margin:0}.top.wrap .search{margin-left:auto}
+.top.wrap.joined .grow{display:none}
 .burn b{font-family:var(--f-data);font-weight:500;color:var(--lv);font-size:14px}
 .burn small{color:var(--ink-3);font-size:11.5px}
 .burn .bar{width:46px;height:4px;border-radius:2px;background:var(--hair);overflow:hidden}
@@ -830,9 +836,17 @@ var FIT=['c1','c2','c3','c4','c5','c6','c7'],fitQueued=false;
 function fitTop(){
   fitQueued=false;
   var top=document.querySelector('.top'),last=top.lastElementChild,narrow=matchMedia('(max-width:900px)').matches;
-  FIT.forEach(function(c){top.classList.remove(c)});
+  FIT.concat('wrap','joined').forEach(function(c){top.classList.remove(c)});
   function over(){return last.getBoundingClientRect().right>top.getBoundingClientRect().right-parseFloat(getComputedStyle(top).paddingRight)+.5}
   for(var i=0;i<FIT.length&&(narrow||over());i++)top.classList.add(FIT[i]);
+  if(narrow||!over())return;
+  top.classList.add('wrap');
+  // When the burndown itself drops to the second row, the buttons share that row instead of opening a third.
+  var bw=document.querySelector('.burnw');
+  if(bw.offsetParent&&bw.getBoundingClientRect().top>top.firstElementChild.getBoundingClientRect().bottom)top.classList.add('joined');
+  // The extra row may leave room again: labels come back in reverse order while the row count holds.
+  var rows=top.offsetHeight;
+  for(var j=FIT.length-1;j>=0;j--){top.classList.remove(FIT[j]);if(top.offsetHeight>rows||over()){top.classList.add(FIT[j]);break}}
 }
 function queueFit(){if(!fitQueued){fitQueued=true;requestAnimationFrame(fitTop)}}
 if(window.ResizeObserver){var fitRO=new ResizeObserver(queueFit);fitRO.observe(document.querySelector('.top'));[].forEach.call(document.querySelector('.top').children,function(el){fitRO.observe(el)})}
