@@ -109,7 +109,12 @@ svg{flex:none;display:block}
 .burn.low{--lv:var(--p1)}
 .burn.mid{--lv:var(--p2)}
 .burn.ok{--lv:var(--p4)}
-@media (max-width:1700px){#motion span,#settings span,.search kbd{display:none}.burnw{margin-left:12px}.search{min-width:80px}}
+/* fitTop() adds c1..c5 in turn while the header does not fit; the order is the order space is given up. */
+.top.c1 .burnl{display:none}.top.c1 .burnw{margin-left:12px}
+.top.c2 #motion span{display:none}
+.top.c3 #settings span{display:none}
+.top.c4 .search kbd{display:none}.top.c4 .search{min-width:80px}
+.top.c5 .spr .left{display:none}
 .burn b{font-family:var(--f-data);font-weight:500;color:var(--lv);font-size:14px}
 .burn small{color:var(--ink-3);font-size:11.5px}
 .burn .bar{width:46px;height:4px;border-radius:2px;background:var(--hair);overflow:hidden}
@@ -335,7 +340,7 @@ svg{flex:none;display:block}
 .su-bot .tb.primary:hover{background:#1B36D9}
 @media (max-width:700px){.su-grid{grid-template-columns:1fr}.setup{padding:8px}}
 
-@media (max-width:1280px){.spr .left{display:none}.search{width:200px}}
+@media (max-width:1280px){.search{width:200px}}
 @media (max-width:900px){
   body{overflow:auto}
   .top{height:auto;flex-wrap:wrap;padding:10px 12px;gap:10px 12px}
@@ -663,7 +668,7 @@ function renderChrome(){
   if(loading)$('rfIco').firstChild.classList.add('spin');
   $('retry').textContent=t.retry;
   var mo=motionOn(),mb=$('motion');
-  mb.innerHTML=ICON.wave+'<span>'+h(t.motion)+'</span>';mb.setAttribute('aria-pressed',String(mo));mb.title=mo?t.motionOn:t.motionOff;
+  mb.innerHTML=ICON.wave+'<span>'+h(t.motion)+'</span>';mb.setAttribute('aria-pressed',String(mo));mb.title=mo?t.motionOn:t.motionOff;mb.setAttribute('aria-label',t.motion);
   var sb=$('settings');sb.innerHTML=ICON.gear+'<span>'+h(ST[lang].settings)+'</span>';sb.title=ST[lang].settingsTip;sb.setAttribute('aria-label',ST[lang].settings);
 }
 function renderChan(){
@@ -818,6 +823,18 @@ document.addEventListener('keydown',function(e){
   if(e.key==='/'&&!typing){e.preventDefault();$('q').focus()}
   if(e.key==='Escape'){if(W&&!W.required){closeSetup();return}var p=$('pop');if(p&&!p.hidden){p.hidden=true;return}if(!$('bpop').hidden){$('bpop').hidden=true;$('burn').setAttribute('aria-expanded','false');return}if(document.activeElement===$('q')&&$('q').value){$('q').value='';renderBoard()}}
 });
+/* Give up header space step by step only as far as needed; below 900px the header wraps and stays compact. */
+var FIT=['c1','c2','c3','c4','c5'],fitQueued=false;
+function fitTop(){
+  fitQueued=false;
+  var top=document.querySelector('.top'),last=top.lastElementChild,narrow=matchMedia('(max-width:900px)').matches;
+  FIT.forEach(function(c){top.classList.remove(c)});
+  function over(){return last.getBoundingClientRect().right>top.getBoundingClientRect().right-parseFloat(getComputedStyle(top).paddingRight)+.5}
+  for(var i=0;i<FIT.length&&(narrow||over());i++)top.classList.add(FIT[i]);
+}
+function queueFit(){if(!fitQueued){fitQueued=true;requestAnimationFrame(fitTop)}}
+if(window.ResizeObserver){var fitRO=new ResizeObserver(queueFit);fitRO.observe(document.querySelector('.top'));[].forEach.call(document.querySelector('.top').children,function(el){fitRO.observe(el)})}
+else window.addEventListener('resize',queueFit);
 $('hiddenBtn').addEventListener('click',function(){showHidden=!showHidden;renderBoard()});
 $('refresh').addEventListener('click',function(){playShow(load(true))});
 $('motion').addEventListener('click',function(){motion=motionOn()?'off':'on';store.set('sfb.motion',motion);document.documentElement.dataset.motion=motion;renderChrome()});
