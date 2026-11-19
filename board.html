@@ -109,12 +109,14 @@ svg{flex:none;display:block}
 .burn.low{--lv:var(--p1)}
 .burn.mid{--lv:var(--p2)}
 .burn.ok{--lv:var(--p4)}
-/* fitTop() adds c1..c5 in turn while the header does not fit; the order is the order space is given up. */
+/* fitTop() adds c1..c7 in turn while the header does not fit; the order is the order space is given up. */
 .top.c1 .burnl{display:none}.top.c1 .burnw{margin-left:12px}
 .top.c2 #motion span{display:none}
 .top.c3 #settings span{display:none}
 .top.c4 .search kbd{display:none}.top.c4 .search{min-width:80px}
 .top.c5 .spr .left{display:none}
+.top.c6 #stamp{display:none}
+.top.c7 #hiddenBtn span{display:none}
 .burn b{font-family:var(--f-data);font-weight:500;color:var(--lv);font-size:14px}
 .burn small{color:var(--ink-3);font-size:11.5px}
 .burn .bar{width:46px;height:4px;border-radius:2px;background:var(--hair);overflow:hidden}
@@ -656,7 +658,7 @@ function renderBoard(fromLoad){
   if(fromLoad===true&&placed&&placedSel===sel)[].forEach.call(b.querySelectorAll('.card'),function(e){if(placed[e.dataset.key]!==e.dataset.col)e.classList.add('arrive')});
   placed=now;placedSel=sel;
   var hb=$('hiddenBtn');hb.innerHTML=(showHidden?ICON.eye:ICON.eyeOff)+'<span>'+h(t.hidden)+' '+heldTotal+'</span>';
-  hb.title=showHidden?t.hideHeld:t.showHeld;hb.setAttribute('aria-pressed',String(showHidden));hb.disabled=!heldTotal&&!showHidden;
+  hb.title=showHidden?t.hideHeld:t.showHeld;hb.setAttribute('aria-label',t.hidden+' '+heldTotal);hb.setAttribute('aria-pressed',String(showHidden));hb.disabled=!heldTotal&&!showHidden;
 }
 
 function renderChrome(){
@@ -824,7 +826,7 @@ document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){if(W&&!W.required){closeSetup();return}var p=$('pop');if(p&&!p.hidden){p.hidden=true;return}if(!$('bpop').hidden){$('bpop').hidden=true;$('burn').setAttribute('aria-expanded','false');return}if(document.activeElement===$('q')&&$('q').value){$('q').value='';renderBoard()}}
 });
 /* Give up header space step by step only as far as needed; below 900px the header wraps and stays compact. */
-var FIT=['c1','c2','c3','c4','c5'],fitQueued=false;
+var FIT=['c1','c2','c3','c4','c5','c6','c7'],fitQueued=false;
 function fitTop(){
   fitQueued=false;
   var top=document.querySelector('.top'),last=top.lastElementChild,narrow=matchMedia('(max-width:900px)').matches;
