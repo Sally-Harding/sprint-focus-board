@@ -104,7 +104,8 @@ PROMPTS = {
 }
 
 DEFAULT_COLUMNS = [
-    {"id": "todo", "name": "To Do", "color": "#8A93A6", "rule": {"type": "unassigned"}, "types": ["Sub-task", "Bug", "Spike"]},
+    {"id": "todo", "name": "To Do", "color": "#8A93A6", "rule": {"type": "unassigned", "orAssignee": True},
+     "types": ["Sub-task", "Bug", "Spike"]},
     {"id": "reopened", "name": "Reopened", "color": "#E5484D", "rule": {"type": "assignee"}},
     {"id": "progress", "name": "In Progress", "color": "#2B8CFF", "rule": {"type": "assignee"}},
     {"id": "blocked", "name": "Blocked", "color": "#D9822B", "rule": {"type": "involved"}},
@@ -575,6 +576,7 @@ def configure(cfg, base=None):
             "role": rule.get("role"),
             "roles": str_list(rule.get("roles"), f"{where}.rule.roles") if rule.get("roles") is not None else None,
             "notAssignee": bool(rule.get("notAssignee")),
+            "orAssignee": bool(rule.get("orAssignee")),
             "emptyExcludes": str_list(rule.get("emptyExcludes"), f"{where}.rule.emptyExcludes"),
             "whenEmpty": rule.get("whenEmpty", "anyone"),
         }

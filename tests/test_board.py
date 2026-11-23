@@ -127,6 +127,12 @@ class BoardTest(unittest.TestCase):
         self.assertEqual({c["id"]: c["stage"] for c in board.COLUMNS},
                          {"todo": 0, "reopened": 0, "progress": 0, "blocked": 0, "toreview": 1, "inreview": 1, "merge": 2})
 
+    def test_to_do_also_shows_the_persons_own_tickets(self):
+        configured()
+        self.assertTrue(next(c for c in board.COLUMNS if c["id"] == "todo")["rule"]["orAssignee"])
+        configured(columns=[{"id": "todo", "name": "To Do", "rule": {"type": "unassigned"}}])
+        self.assertFalse(board.COLUMNS[0]["rule"]["orAssignee"])
+
 
 class BurnJobTest(unittest.TestCase):
     def test_burn_is_worked_out_in_the_background(self):

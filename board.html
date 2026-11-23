@@ -409,7 +409,7 @@ var T={
     reasons:{notFirst:'ilk geçiş değil',own:'kendi işi',notAssignee:'assignee değil',noEstimate:'tahmin yok'},
     other:'Diğer',chan:'Kanallar',chanTip:function(c){return c+' kolonları seçili kanalların işlerini gösterir.'},chanLast:'En az bir kanal açık kalmalı.',
     and:' ve ',or:' ya da ',
-    r:{unassigned:'Atanmamış.',assignee:'Bu kişiye atanmış.',any:'Bu statüdeki tüm işler.',channels:'Seçili kanallar.',notMine:'Başkasının işi.',
+    r:{unassigned:'Atanmamış.',unassignedOrMine:'Atanmamış ya da bu kişiye atanmış.',unassignedChanOrMine:'Seçili kanallarda atanmamış ya da bu kişiye atanmış.',assignee:'Bu kişiye atanmış.',any:'Bu statüdeki tüm işler.',channels:'Seçili kanallar.',notMine:'Başkasının işi.',
       involved:function(x){return 'Bu kişi '+x+'.'},roleOrEmpty:function(l){return l+' bu kişi ya da boş.'},roleOnly:function(l){return l+' bu kişi.'},
       roleOrEmptyNot:function(l,x){return l+' bu kişi; ya da boş ve bu kişi '+x+' değil.'},notRole:function(x){return 'Bu kişi '+x+' değil.'}}},
   en:{search:'Search key, title, person',hidden:'Hidden',refresh:'Refresh',retry:'Try again',
@@ -426,7 +426,7 @@ var T={
     reasons:{notFirst:'not the first pass',own:'own ticket',notAssignee:'not the assignee',noEstimate:'no estimate'},
     other:'Other',chan:'Channels',chanTip:function(c){return c+' show work from the selected channels.'},chanLast:'Keep at least one channel on.',
     and:' and ',or:' or ',
-    r:{unassigned:'Unassigned.',assignee:'Assigned to this person.',any:'All work in this status.',channels:'Selected channels.',notMine:'Someone else’s work.',
+    r:{unassigned:'Unassigned.',unassignedOrMine:'Unassigned or assigned to this person.',unassignedChanOrMine:'Unassigned in the selected channels, or assigned to this person.',assignee:'Assigned to this person.',any:'All work in this status.',channels:'Selected channels.',notMine:'Someone else’s work.',
       involved:function(x){return 'This person is the '+x+'.'},roleOrEmpty:function(l){return l+' is this person or empty.'},roleOnly:function(l){return l+' is this person.'},
       roleOrEmptyNot:function(l,x){return l+' is this person, or empty and this person is not the '+x+'.'},notRole:function(x){return 'This person is not the '+x+'.'}}}
 };
@@ -513,9 +513,10 @@ function chanFor(u){var on=(chans[u]||[]).filter(function(c){return CHAN_IDS.ind
 function inChan(r,u){if(!CHANS.length)return true;var on=chanFor(u);return chanOf(r).some(function(c){return on.indexOf(c)>=0})}
 /* Column rules, keyed by the selected person. The server already matched status and issue type (r.cols). */
 function fits(c,r,u){
-  if(c.channels&&!inChan(r,u))return false;
-  var R=c.rule,mine=!!(r.assignee&&r.assignee.id===u);
-  if(R.type==='unassigned')return !r.assignee;
+  var R=c.rule,mine=!!(r.assignee&&r.assignee.id===u),own=R.type==='unassigned'&&R.orAssignee&&mine;
+  /* The person's own tickets are not filtered by channel, as in the assignee columns. */
+  if(c.channels&&!own&&!inChan(r,u))return false;
+  if(R.type==='unassigned')return !r.assignee||own;
   if(R.type==='assignee')return mine;
   if(R.type==='any')return true;
   if(R.type==='involved')return mine||(R.roles||ROLES.map(function(x){return x.id})).some(function(id){return has(roleList(r,id),u)});
@@ -535,7 +536,9 @@ function sentenceCase(l){return lang==='en'?l.charAt(0).toUpperCase()+l.slice(1)
 function ruleText(c){
   if(c.description)return txt(c.description);
   var t=T[lang],x=t.r,R=c.rule,p=[];
-  if(R.type==='unassigned')p.push(x.unassigned);
+  var chanNote=c.channels&&CHANS.length;
+  if(R.type==='unassigned'&&R.orAssignee){p.push(chanNote?x.unassignedChanOrMine:x.unassignedOrMine);chanNote=false}
+  else if(R.type==='unassigned')p.push(x.unassigned);
   else if(R.type==='assignee')p.push(x.assignee);
   else if(R.type==='any')p.push(x.any);
   else if(R.type==='involved')p.push(x.involved(joinList([inSentence(t.rA)].concat((R.roles||ROLES.map(function(y){return y.id})).map(roleLabel).filter(Boolean).map(inSentence)),t.or)));
@@ -546,7 +549,7 @@ function ruleText(c){
     else if(ex.length)p.push(x.notRole(joinList(ex,t.or)));
     else if(!R.notAssignee)p.push(x.any);
   }
-  if(c.channels&&CHANS.length)p.push(x.channels);
+  if(chanNote)p.push(x.channels);
   if(c.types&&c.types.length)p.push(c.types.join(', ')+'.');
   return p.join(' ');
 }

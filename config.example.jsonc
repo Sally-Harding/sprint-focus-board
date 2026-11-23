@@ -70,7 +70,9 @@
   //   promptIfNotAssignee  template used when the picked person is not the assignee
   //
   // Rule types (the "person" is the one picked in the header):
-  //   { "type": "unassigned" }   nobody is assigned
+  //   { "type": "unassigned", "orAssignee": true }
+  //                              nobody is assigned; orAssignee also shows the person's own tickets,
+  //                              whatever channels are selected
   //   { "type": "assignee" }     the person is the assignee
   //   { "type": "involved", "roles": ["approver"] }
   //                              the person is the assignee or holds one of the roles
@@ -85,7 +87,7 @@
   //
   // These are the built-in defaults; leave "columns" out to use them as they are.
   "columns": [
-    { "id": "todo", "name": "To Do", "color": "#8A93A6", "rule": { "type": "unassigned" },
+    { "id": "todo", "name": "To Do", "color": "#8A93A6", "rule": { "type": "unassigned", "orAssignee": true },
       "types": ["Sub-task", "Bug", "Spike"] },
     { "id": "reopened", "name": "Reopened", "color": "#E5484D", "rule": { "type": "assignee" } },
     { "id": "progress", "name": "In Progress", "color": "#2B8CFF", "rule": { "type": "assignee" } },

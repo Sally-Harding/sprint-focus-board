@@ -208,7 +208,7 @@ A ticket goes to the first column whose statuses and issue types match and whose
 
 | Rule | Shows a ticket when |
 | --- | --- |
-| `unassigned` | nobody is assigned |
+| `unassigned` | nobody is assigned. `orAssignee: true` (the To Do default) also shows the person's own tickets, whatever channels are selected. |
 | `assignee` | the person is the assignee |
 | `involved` | the person is the assignee or holds any reviewer role (or the roles listed in `roles`) |
 | `role` | the person holds `role`. When the role is empty, anyone may take it (`whenEmpty: "anyone"`) except people in `emptyExcludes`, or nobody (`whenEmpty: "nobody"`). `notAssignee: true` hides the person's own tickets. |
