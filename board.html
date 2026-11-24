@@ -210,6 +210,12 @@ svg{flex:none;display:block}
 .as .av.ini{font-size:9px}
 .as .none{display:block;border-radius:50%;border:1px dashed var(--hair-2)}
 .card h3{margin:5px 0 0;font-size:14px;line-height:1.38;font-weight:500;color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.last{display:inline-flex;margin-left:8px}
+.last svg{overflow:hidden}
+/* Each cloth column lifts and leans a little later than the one before, so the flags ripple away from the poles. */
+.last .fc{transform-box:fill-box;transform-origin:left center;animation:wave .9s ease-in-out infinite;animation-delay:calc(var(--i)*-.14s)}
+.last .fc rect:first-child{stroke:#2B2B2B;stroke-width:.3}
+@keyframes wave{0%,100%{transform:translateY(calc(var(--i)*-.45px)) skewY(8deg)}50%{transform:translateY(calc(var(--i)*.45px)) skewY(-8deg)}}
 .par{display:flex;gap:6px;align-items:center;margin-top:7px;font-size:12px;color:var(--ink-3);min-width:0}
 .par span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cf{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:9px;border-top:.5px solid var(--hair)}
@@ -409,6 +415,7 @@ var T={
     reasons:{notFirst:'ilk geçiş değil',own:'kendi işi',notAssignee:'assignee değil',noEstimate:'tahmin yok'},
     other:'Diğer',chan:'Kanallar',chanTip:function(c){return c+' kolonları seçili kanalların işlerini gösterir.'},chanLast:'En az bir kanal açık kalmalı.',
     and:' ve ',or:' ya da ',
+    lastOpen:'Story\'nin açık kalan son sub-task\'ı',
     r:{unassigned:'Atanmamış.',unassignedOrMine:'Atanmamış ya da bu kişiye atanmış.',unassignedChanOrMine:'Seçili kanallarda atanmamış ya da bu kişiye atanmış.',assignee:'Bu kişiye atanmış.',any:'Bu statüdeki tüm işler.',channels:'Seçili kanallar.',notMine:'Başkasının işi.',
       involved:function(x){return 'Bu kişi '+x+'.'},roleOrEmpty:function(l){return l+' bu kişi ya da boş.'},roleOnly:function(l){return l+' bu kişi.'},
       roleOrEmptyNot:function(l,x){return l+' bu kişi; ya da boş ve bu kişi '+x+' değil.'},notRole:function(x){return 'Bu kişi '+x+' değil.'}}},
@@ -426,6 +433,7 @@ var T={
     reasons:{notFirst:'not the first pass',own:'own ticket',notAssignee:'not the assignee',noEstimate:'no estimate'},
     other:'Other',chan:'Channels',chanTip:function(c){return c+' show work from the selected channels.'},chanLast:'Keep at least one channel on.',
     and:' and ',or:' or ',
+    lastOpen:'The last open sub-task of its story',
     r:{unassigned:'Unassigned.',unassignedOrMine:'Unassigned or assigned to this person.',unassignedChanOrMine:'Unassigned in the selected channels, or assigned to this person.',assignee:'Assigned to this person.',any:'All work in this status.',channels:'Selected channels.',notMine:'Someone else’s work.',
       involved:function(x){return 'This person is the '+x+'.'},roleOrEmpty:function(l){return l+' is this person or empty.'},roleOnly:function(l){return l+' is this person.'},
       roleOrEmptyNot:function(l,x){return l+' is this person, or empty and this person is not the '+x+'.'},notRole:function(x){return 'This person is not the '+x+'.'}}}
@@ -455,6 +463,11 @@ var ICON={
   wave:svg('<path d="M2 12c2.5-4 5-4 7.5 0s5 4 7.5 0 3.5-2.7 5-2"/>',15),
   burn:svg('<path d="M4 3.5v16.5h16.5"/><path d="M7.5 6.5l3.5 4 3-1.5 5 7"/><circle cx="19" cy="16" r=".6" fill="currentColor"/>',16),
   gear:svg('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.4"/>',14),
+  /* Two crossed checkered flags waving; sized to the priority tag's height. */
+  last:'<svg width="33" height="26" viewBox="0 0 40 31.5" aria-hidden="true" stroke-linecap="round">'+
+    '<g transform="translate(40 0) scale(-1 1)"><g transform="rotate(14 20 15.2)"><path d="M23.4 1.6 16.8 28" stroke="#2B2B2B" stroke-width="1.5"/><g fill="#2B2B2B"><g class="fc" style="--i:0"><rect x="23.6" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="23.6" y="3.0" width="3.5" height="3.4"/><rect x="23.6" y="9.8" width="3.5" height="3.4"/></g><g class="fc" style="--i:1"><rect x="27.1" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="27.1" y="6.4" width="3.5" height="3.4"/></g><g class="fc" style="--i:2"><rect x="30.6" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="30.6" y="3.0" width="3.5" height="3.4"/><rect x="30.6" y="9.8" width="3.5" height="3.4"/></g><g class="fc" style="--i:3"><rect x="34.1" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="34.1" y="6.4" width="3.5" height="3.4"/></g></g></g></g></g>'+
+    '<g transform="rotate(14 20 15.2)"><path d="M23.4 1.6 16.8 28" stroke="#2B2B2B" stroke-width="1.5"/><g fill="#2B2B2B"><g class="fc" style="--i:0"><rect x="23.6" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="23.6" y="3.0" width="3.5" height="3.4"/><rect x="23.6" y="9.8" width="3.5" height="3.4"/></g><g class="fc" style="--i:1"><rect x="27.1" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="27.1" y="6.4" width="3.5" height="3.4"/></g><g class="fc" style="--i:2"><rect x="30.6" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="30.6" y="3.0" width="3.5" height="3.4"/><rect x="30.6" y="9.8" width="3.5" height="3.4"/></g><g class="fc" style="--i:3"><rect x="34.1" y="3" width="3.5" height="10.2" fill="#fff"/><rect x="34.1" y="6.4" width="3.5" height="3.4"/></g></g></g></g>'+
+    '</svg>',
   story:'<svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h9v13l-4.5-3-4.5 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
 };
 function typeGlyph(t){
@@ -554,6 +567,8 @@ function ruleText(c){
   return p.join(' ');
 }
 function prioNum(r){return typeof r.prio==='number'?r.prio:9}
+/* A story's last open sub-task sorts between P1 and P2, whatever its own priority below P1. */
+function sortPrio(r){var n=prioNum(r);return r.lastOpen?Math.min(n,1.5):n}
 function prioColor(r){var n=prioNum(r);return n<=5?'var(--p'+n+')':'var(--p0)'}
 function pic(p){return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>'}
 var PRIO={
@@ -623,6 +638,7 @@ function card(r,col){
     '<h3>'+h(r.summary)+'</h3>'+
     (r.parent?'<div class="par" title="'+h(r.parent.key+' '+r.parent.summary)+'">'+ICON.story+'<span>'+h(r.parent.key)+' '+h(r.parent.summary)+'</span></div>':'')+
     '<div class="cf">'+(PRIO[n]?'<span class="pv p'+n+'" title="'+h(r.prioName||'')+'"><span class="pi">'+PRIO[n].icon+'</span><span class="pl">'+h(PRIO[n].label)+'</span></span>':'')+
+    (r.lastOpen?'<span class="last" title="'+h(t.lastOpen)+'" role="img" aria-label="'+h(t.lastOpen)+'">'+ICON.last+'</span>':'')+
     '<div class="acts">'+
     '<button type="button" data-act="'+(held?'unhide':'hide')+'" title="'+h(held?t.unhide:t.hide)+'" aria-label="'+h((held?t.unhide:t.hide)+' '+r.key)+'">'+(held?ICON.eye:ICON.eyeOff)+'</button>'+
     '<button type="button" class="copy" data-act="copy" title="'+h(t.copyFull)+'" aria-label="'+h(t.copyFull+' '+r.key)+'">'+ICON.copy+'<span>'+h(t.copy)+'</span></button>'+
@@ -654,7 +670,7 @@ function renderBoard(fromLoad){
   var o='';
   COLS.forEach(function(c){
     var x=g[c.id],empty=!x.rows.length,f=empty||folded.indexOf(c.id)>=0;
-    x.rows.sort(function(a,b){return prioNum(a)-prioNum(b)||a.rank-b.rank});
+    x.rows.sort(function(a,b){return sortPrio(a)-sortPrio(b)||a.rank-b.rank});
     o+='<section class="bay'+(f?' folded':'')+(empty?' vacant':'')+'" data-col="'+h(c.id)+'" title="'+h(empty?c.name+': '+t.empty:'')+'" style="--sc:'+h(c.color)+'" aria-label="'+h(c.name)+'"><div class="bh"><div class="bh-r">'+
       '<h2>'+h(c.name)+'</h2><span class="n">'+x.rows.length+'</span>'+(x.held&&!showHidden?'<span class="held-n">'+h(t.heldN(x.held))+'</span>':'')+
       (empty?'':'<button type="button" class="fold" data-act="fold" title="'+h(f?t.unfold:t.fold)+'" aria-label="'+h((f?t.unfold:t.fold)+' '+c.name)+'" aria-expanded="'+(!f)+'">'+(f?ICON.unfold:ICON.fold)+'</button>')+'</div>'+

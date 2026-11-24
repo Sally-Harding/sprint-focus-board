@@ -78,6 +78,7 @@ A team board answers "where is everything?". During the day the question is narr
 | 🧱 **Columns per status** | Each column lists Jira statuses and a rule for the picked person: `unassigned`, `assignee`, `involved`, `role` or `any`. The defaults cover To Do → Reopened → In Progress → Blocked → To Review → In Review → For Merge Approval. |
 | 👥 **Person picker** | Everyone who is an assignee or reviewer in the sprint. The board opens on the owner of the API token; `?u=<accountId>` links straight to someone else. |
 | 🔗 **Hand-off chain** | Assignee → each configured reviewer role (any user-picker fields, 0..n). The stage the column stands for is highlighted. |
+| 🏁 **Last open sub-task** | A sub-task that is the only open one left in its story gets waving finish flags and sorts between P1 and P2, whatever its own priority below P1. |
 | 🏷️ **Channel chips** | Optional team streams, defined by epics, label and component glob patterns, and a summary regex. Hidden when none are configured. |
 | 📋 **Prompt per card** | Per-column templates with `{key}`, `{summary}`, `{url}`, `{status}` and more, in one language or per language. Neutral defaults; bring your own workflow. |
 | 🔥 **Burndown contribution** | Today's Remaining Estimate drop against a daily target, a sprint-to-date chart, and every change behind both. |

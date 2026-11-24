@@ -862,6 +862,18 @@ def fetch_parents(issues):
     return parents
 
 
+def open_children(issues):
+    # Open sub-tasks per parent, in any sprint, so the board can mark a story's last open sub-task.
+    keys = sorted({i["fields"]["parent"]["key"] for i in issues
+                   if i["fields"].get("parent") and i["fields"]["issuetype"].get("subtask")})
+    count = {}
+    for n in range(0, len(keys), 100):
+        for c in search("parent in (%s) AND statusCategory != Done" % ",".join(keys[n:n + 100]), "parent"):
+            k = c["fields"]["parent"]["key"]
+            count[k] = count.get(k, 0) + 1
+    return count
+
+
 def sprint_info(s):
     prefix = CFG["board"].get("sprintNamePrefix") or ""
     name = s["name"]
@@ -874,6 +886,7 @@ def load_board():
     sprint = active_sprint()
     issues = search(f"sprint = {sprint['id']} AND statusCategory != Done ORDER BY rank ASC", FIELDS)
     parents = fetch_parents(issues) if CHANNELS else {}
+    siblings = open_children(issues)
     rows = []
     for rank, i in enumerate(issues):
         f = i["fields"]
@@ -892,6 +905,7 @@ def load_board():
             "roles": {r["id"]: people(f.get(r["field"])) for r in ROLES},
             "channels": channels_of(i, parents),
             "parent": {"key": p["key"], "summary": parents.get(p["key"], {}).get("summary") or (p.get("fields") or {}).get("summary", "")} if p else None,
+            "lastOpen": bool(p and f["issuetype"].get("subtask") and siblings.get(p["key"]) == 1),
             "rank": rank,
             "cols": columns_for(status, f["issuetype"]["name"]),
             "vars": prompt_vars_for(i["key"], f["issuetype"]["name"]),
