@@ -539,6 +539,13 @@ function fits(c,r,u){
   if(R.whenEmpty==='nobody')return false;
   return !(R.emptyExcludes||[]).some(function(id){return has(roleList(r,id),u)});
 }
+/* 1 when the ticket already names the person for this column (its role, or the assignee), so it sorts first. */
+function claimed(c,r,u){
+  var R=c.rule;
+  if(R.type==='role')return has(roleList(r,R.role),u)?1:0;
+  if(R.type==='involved')return (r.assignee&&r.assignee.id===u)||(R.roles||ROLES.map(function(x){return x.id})).some(function(id){return has(roleList(r,id),u)})?1:0;
+  return r.assignee&&r.assignee.id===u?1:0;
+}
 function colOf(r,u){
   for(var i=0;i<(r.cols||[]).length;i++){var c=COLMAP[r.cols[i]];if(c&&fits(c,r,u))return c.id}
   return null;
@@ -670,7 +677,7 @@ function renderBoard(fromLoad){
   var o='';
   COLS.forEach(function(c){
     var x=g[c.id],empty=!x.rows.length,f=empty||folded.indexOf(c.id)>=0;
-    x.rows.sort(function(a,b){return sortPrio(a)-sortPrio(b)||a.rank-b.rank});
+    x.rows.sort(function(a,b){return claimed(c,b,sel)-claimed(c,a,sel)||sortPrio(a)-sortPrio(b)||a.rank-b.rank});
     o+='<section class="bay'+(f?' folded':'')+(empty?' vacant':'')+'" data-col="'+h(c.id)+'" title="'+h(empty?c.name+': '+t.empty:'')+'" style="--sc:'+h(c.color)+'" aria-label="'+h(c.name)+'"><div class="bh"><div class="bh-r">'+
       '<h2>'+h(c.name)+'</h2><span class="n">'+x.rows.length+'</span>'+(x.held&&!showHidden?'<span class="held-n">'+h(t.heldN(x.held))+'</span>':'')+
       (empty?'':'<button type="button" class="fold" data-act="fold" title="'+h(f?t.unfold:t.fold)+'" aria-label="'+h((f?t.unfold:t.fold)+' '+c.name)+'" aria-expanded="'+(!f)+'">'+(f?ICON.unfold:ICON.fold)+'</button>')+'</div>'+
