@@ -375,7 +375,7 @@ html[data-motion="off"] *{transition:none!important;animation:none!important}
   <div class="seg chan" role="group" id="chan"></div>
   <span class="sep"></span>
   <div class="spr" id="spr"></div>
-  <div class="burnw"><span class="burnl" id="burnl"></span><button type="button" class="tb burn" id="burn" aria-haspopup="true" aria-expanded="false"></button><div class="bpop" id="bpop" hidden></div></div>
+  <div class="burnw"><span class="burnl" id="burnl"></span><button type="button" class="tb burn" id="burn" aria-haspopup="true" aria-expanded="false"></button><div class="bpop" id="bpop" hidden></div><div class="tb burn logged" id="logged"></div></div>
   <span class="grow"></span>
   <label class="search">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -410,7 +410,7 @@ var T={
     empty:'Bu kolonda iş yok.',fold:'Kolonu daralt',unfold:'Kolonu aç',you:'sen',findPerson:'Kişi ara',
     err:'Jira okunamadı',more:'Diğer kişiler',rA:'Assignee',none:'boş',
     motion:'Hareket',motionOn:'Hareketi kapat',motionOff:'Hareketi aç',
-    burn:'Burndown Katkısı',burnTip:'Bugünkü burndown katkısı: kişinin bugün Remaining Estimate\'te yaptığı düşüş.',burnRe:'Remaining Estimate değişiklikleri',burnTr:'Geçişler, tahmin yorumuna göre (karşılaştırma için)',
+    logged:'Bugün loglanan',loggedNone:'Bugün worklog yok.',loggedErr:'Worklog okunamadı',burn:'Burndown Katkısı',burnTip:'Bugünkü burndown katkısı: kişinin bugün Remaining Estimate\'te yaptığı düşüş.',burnRe:'Remaining Estimate değişiklikleri',burnTr:'Geçişler, tahmin yorumuna göre (karşılaştırma için)',
     burnNone:'Bugün kayıt yok.',burnErr:'Burndown okunamadı',burnUp:'tahmin artışı',burnSprint:'Sprint toplamı',burnSprintTip:function(n,x){return n+' iş günü × '+x+'h'},burnLoading:'Sprint hesaplanıyor…',burnLeft:function(x){return 'Done, '+x+' RE kaldı'},
     reasons:{notFirst:'ilk geçiş değil',own:'kendi işi',notAssignee:'assignee değil',noEstimate:'tahmin yok'},
     other:'Diğer',chan:'Kanallar',chanTip:function(c){return c+' kolonları seçili kanalların işlerini gösterir.'},chanLast:'En az bir kanal açık kalmalı.',
@@ -428,7 +428,7 @@ var T={
     empty:'Nothing in this column.',fold:'Collapse column',unfold:'Expand column',you:'you',findPerson:'Find a person',
     err:'Could not read Jira',more:'More people',rA:'Assignee',none:'empty',
     motion:'Motion',motionOn:'Turn motion off',motionOff:'Turn motion on',
-    burn:'Burndown Contribution',burnTip:'Today’s burndown contribution: the drop this person made in Remaining Estimate today.',burnRe:'Remaining Estimate changes',burnTr:'Transitions, valued from the estimate comment (for comparison)',
+    logged:'Logged today',loggedNone:'No time logged today.',loggedErr:'Could not read worklogs',burn:'Burndown Contribution',burnTip:'Today’s burndown contribution: the drop this person made in Remaining Estimate today.',burnRe:'Remaining Estimate changes',burnTr:'Transitions, valued from the estimate comment (for comparison)',
     burnNone:'Nothing today.',burnErr:'Could not read burndown',burnUp:'estimate raised',burnSprint:'Sprint total',burnSprintTip:function(n,x){return n+' working days × '+x+'h'},burnLoading:'Working out the sprint…',burnLeft:function(x){return 'Done with '+x+' RE left'},
     reasons:{notFirst:'not the first pass',own:'own ticket',notAssignee:'not the assignee',noEstimate:'no estimate'},
     other:'Other',chan:'Channels',chanTip:function(c){return c+' show work from the selected channels.'},chanLast:'Keep at least one channel on.',
@@ -729,6 +729,16 @@ function getBurn(path,force,set,tries){
 }
 function loadBurn(force){return getBurn('/api/burn',force,function(j){burn=j})}
 function loadSprintBurn(force){return getBurn('/api/burn?scope=sprint',force,function(j){sprintBurn=j})}
+var logged=null,loggedFor=null;
+function loadLogged(force){if(!sel)return Promise.resolve();loggedFor=sel;return getBurn('/api/logged?person='+encodeURIComponent(sel),force,function(j){logged=j})}
+function renderLogged(){
+  var t=T[lang],e=$('logged');if(!e)return;
+  if(!logged||loggedFor!==sel||(!logged.error&&logged.person!==sel)){e.innerHTML='<b>…</b><small>'+h(t.logged)+'</small>';e.title=t.logged;return}
+  if(logged.error){e.innerHTML='<b>–</b><small>'+h(t.logged)+'</small>';e.title=t.loggedErr+': '+logged.error;return}
+  var tip=logged.items.length?logged.items.map(function(x){return x.at+'  '+x.key+'  '+hrs(x.seconds/3600)+'  '+x.summary}).join('\n'):t.loggedNone;
+  e.innerHTML='<b>'+h(hrs(logged.seconds/3600))+'</b><small>'+h(t.logged)+'</small>';
+  e.title=t.logged+': '+hrs(logged.seconds/3600)+'\n'+tip;e.setAttribute('aria-label',t.logged+': '+hrs(logged.seconds/3600));
+}
 function level(x){return x<BURNCFG.low?'low':x<BURNCFG.mid?'mid':'ok'}
 function sprintHtml(){
   var t=T[lang];
@@ -751,6 +761,8 @@ function burnRow(e,cls,mid,val){
 }
 function renderBurn(){
   var t=T[lang],b=$('burn'),pop=$('bpop');
+  if(data&&loggedFor!==sel)loadLogged(false);
+  renderLogged();
   $('burnl').textContent=t.burn;b.classList.remove('low','mid','ok');
   if(!data||!burn){b.innerHTML=ICON.burn+'<b>…</b>';return}
   if(burn.error){b.innerHTML=ICON.burn+'<b>–</b>';b.title=t.burnErr+': '+burn.error;pop.innerHTML='<p>'+h(b.title)+'</p>';return}
@@ -792,7 +804,7 @@ function applyBoard(j){
   Object.keys(hidden).forEach(function(k){if(live[k.split('|')[1]]!==hidden[k])delete hidden[k]});store.set('sfb.hidden',hidden);
 }
 function load(force){
-  if(loading||SETUP.required)return Promise.resolve();loading=true;renderChrome();if(BURNCFG.enabled){loadBurn(force);loadSprintBurn(force)}
+  if(loading||SETUP.required)return Promise.resolve();loading=true;renderChrome();if(BURNCFG.enabled){loadBurn(force);loadSprintBurn(force);loadLogged(force)}
   return fetchBoard(force,0).then(applyBoard).catch(function(e){$('errMsg').textContent=T[lang].err+': '+e.message;$('err').hidden=false})
   .then(function(){loading=false;renderAll(true)});
 }
