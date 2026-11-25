@@ -905,6 +905,7 @@ def load_board():
             "roles": {r["id"]: people(f.get(r["field"])) for r in ROLES},
             "channels": channels_of(i, parents),
             "parent": {"key": p["key"], "summary": parents.get(p["key"], {}).get("summary") or (p.get("fields") or {}).get("summary", "")} if p else None,
+            "blocker": any(str(x).lower() == "blocker" for x in f.get("labels") or []),
             "lastOpen": bool(p and f["issuetype"].get("subtask") and siblings.get(p["key"]) == 1),
             "rank": rank,
             "cols": columns_for(status, f["issuetype"]["name"]),

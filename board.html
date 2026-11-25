@@ -199,6 +199,8 @@ svg{flex:none;display:block}
 .pl{font-size:12px;line-height:1;font-weight:600;color:var(--pc)}
 .pv.p1 .pi svg{transform-origin:50% 85%;animation:flicker 1.9s ease-in-out infinite}
 @keyframes flicker{0%,100%{transform:scale(1) rotate(0)}30%{transform:scale(1.07,.95) rotate(-3deg)}60%{transform:scale(.96,1.06) rotate(2deg)}}
+.blk{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--p1,#d92d20)}
+.blk svg{width:15px;height:15px}
 .cb{min-width:0}
 .r1{display:flex;align-items:center;gap:7px;min-width:0}
 .key{font-size:13.5px;font-weight:700;letter-spacing:.04em;color:var(--cobalt);text-decoration:none;white-space:nowrap}
@@ -218,7 +220,7 @@ svg{flex:none;display:block}
 @keyframes wave{0%,100%{transform:translateY(calc(var(--i)*-.45px)) skewY(8deg)}50%{transform:translateY(calc(var(--i)*.45px)) skewY(-8deg)}}
 .par{display:flex;gap:6px;align-items:center;margin-top:7px;font-size:12px;color:var(--ink-3);min-width:0}
 .par span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cf{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:9px;border-top:.5px solid var(--hair)}
+.cf{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;padding-top:9px;border-top:.5px solid var(--hair)}
 /* hand-off chain: Assignee -> each reviewer role; the stage the ticket is in sits on a soft pill */
 .chain{display:flex;flex-direction:column;align-items:center;margin-left:10px;padding-left:9px;border-left:.5px solid var(--hair)}
 .grp{display:flex;flex-direction:column;align-items:center;padding:3px;border-radius:999px;transition:background .2s ease}
@@ -645,6 +647,7 @@ function card(r,col){
     '<h3>'+h(r.summary)+'</h3>'+
     (r.parent?'<div class="par" title="'+h(r.parent.key+' '+r.parent.summary)+'">'+ICON.story+'<span>'+h(r.parent.key)+' '+h(r.parent.summary)+'</span></div>':'')+
     '<div class="cf">'+(PRIO[n]?'<span class="pv p'+n+'" title="'+h(r.prioName||'')+'"><span class="pi">'+PRIO[n].icon+'</span><span class="pl">'+h(PRIO[n].label)+'</span></span>':'')+
+    (r.blocker?'<span class="blk" title="Blocker" role="img" aria-label="Blocker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 18 18 6"/></svg></span>':'')+
     (r.lastOpen?'<span class="last" title="'+h(t.lastOpen)+'" role="img" aria-label="'+h(t.lastOpen)+'">'+ICON.last+'</span>':'')+
     '<div class="acts">'+
     '<button type="button" data-act="'+(held?'unhide':'hide')+'" title="'+h(held?t.unhide:t.hide)+'" aria-label="'+h((held?t.unhide:t.hide)+' '+r.key)+'">'+(held?ICON.eye:ICON.eyeOff)+'</button>'+
