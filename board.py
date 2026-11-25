@@ -667,7 +667,7 @@ def configure(cfg, base=None):
 
     CFG, ROLES, COLUMNS, CHANNELS, PRIORITIES, SUFFIXES, BURN, CLOCK = cfg, roles, columns, channels, priorities, suffixes, burn, clock
     TEAM, SETUP_REQUIRED, PROMPT_VARS = team, setup_required, prompt_vars
-    FIELDS =",".join(["summary", "status", "priority", "issuetype", "parent", "assignee", "labels", "components"] + [r["field"] for r in roles])
+    FIELDS =",".join(["summary", "status", "priority", "issuetype", "parent", "assignee", "labels", "components", "issuelinks"] + [r["field"] for r in roles])
     return warnings
 
 
@@ -874,6 +874,20 @@ def open_children(issues):
     return count
 
 
+def blocked_by_this(f):
+    # Open tickets this one holds up through a "Blocks" link (this ticket is the blocker).
+    out = []
+    for link in f.get("issuelinks") or []:
+        other = link.get("outwardIssue")
+        if other and (link.get("type") or {}).get("name", "").lower() == "blocks":
+            of = other.get("fields") or {}
+            st = of.get("status") or {}
+            cat = (st.get("statusCategory") or {}).get("key")
+            if cat != "done":
+                out.append({"key": other["key"], "summary": of.get("summary", ""), "status": st.get("name", ""), "cat": cat or ""})
+    return out
+
+
 def sprint_info(s):
     prefix = CFG["board"].get("sprintNamePrefix") or ""
     name = s["name"]
@@ -905,7 +919,7 @@ def load_board():
             "roles": {r["id"]: people(f.get(r["field"])) for r in ROLES},
             "channels": channels_of(i, parents),
             "parent": {"key": p["key"], "summary": parents.get(p["key"], {}).get("summary") or (p.get("fields") or {}).get("summary", "")} if p else None,
-            "blocker": any(str(x).lower() == "blocker" for x in f.get("labels") or []),
+            "blocks": blocked_by_this(f),
             "lastOpen": bool(p and f["issuetype"].get("subtask") and siblings.get(p["key"]) == 1),
             "rank": rank,
             "cols": columns_for(status, f["issuetype"]["name"]),
