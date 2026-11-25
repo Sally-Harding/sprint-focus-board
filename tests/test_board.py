@@ -133,6 +133,18 @@ class BoardTest(unittest.TestCase):
         configured(columns=[{"id": "todo", "name": "To Do", "rule": {"type": "unassigned"}}])
         self.assertFalse(board.COLUMNS[0]["rule"]["orAssignee"])
 
+    def test_blocks_lists_only_open_tickets_this_one_holds_up(self):
+        def link(name, side, key, cat):
+            return {"type": {"name": name}, side: {"key": key, "fields": {
+                "summary": key + " summary", "status": {"name": "S", "statusCategory": {"key": cat}}}}}
+        f = {"issuelinks": [link("Blocks", "outwardIssue", "A-1", "new"),
+                            link("Blocks", "outwardIssue", "A-2", "done"),
+                            link("Blocks", "inwardIssue", "A-3", "new"),
+                            link("Relates", "outwardIssue", "A-4", "new")]}
+        self.assertEqual(board.blocked_by_this(f),
+                         [{"key": "A-1", "summary": "A-1 summary", "status": "S", "cat": "new"}])
+        self.assertEqual(board.blocked_by_this({}), [])
+
 
 class BurnJobTest(unittest.TestCase):
     def test_burn_is_worked_out_in_the_background(self):
